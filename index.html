@@ -2,14 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FredBot Agent Dashboard</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* Minimal inline styling for clarity */
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    .header { background: #007bff; color: white; padding: 1rem; display: flex; align-items: center; gap: 1rem; }
+    .header input { padding: 0.5rem; font-size: 1rem; }
+    .header button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; }
+    .main { display: flex; height: calc(100vh - 64px); }
+    .sidebar { width: 250px; background: #f0f0f0; overflow-y: auto; padding: 1rem; }
+    .sidebar h2 { margin-top: 0; }
+    #chatList { list-style: none; padding: 0; margin: 0; }
+    #chatList li { padding: 0.5rem; cursor: pointer; border-bottom: 1px solid #ddd; }
+    #chatList li.active { background: #007bff; color: white; }
+    .chat-area { flex-grow: 1; display: flex; flex-direction: column; padding: 1rem; }
+    #chatHeader { font-weight: bold; margin-bottom: 1rem; }
+    #chatBox { flex-grow: 1; border: 1px solid #ddd; padding: 1rem; overflow-y: auto; background: #fafafa; }
+    #chatBox .message { margin-bottom: 0.75rem; }
+    #chatBox .message.agent { text-align: right; color: #007bff; }
+    #chatBox .message.user { text-align: left; color: #333; }
+    #messageInput { width: 100%; height: 60px; margin-top: 1rem; padding: 0.5rem; font-size: 1rem; }
+    button { margin-top: 0.5rem; padding: 0.5rem 1rem; cursor: pointer; }
+    .buttons-group button { margin-right: 0.5rem; }
+  </style>
 </head>
 <body>
   <div class="header">
     <h1>FredBot Agent Dashboard</h1>
-    <input type="text" id="agentName" placeholder="Enter your name"/>
+    <input type="text" id="agentName" placeholder="Enter your name" />
     <button onclick="setAgent()">Login</button>
   </div>
 
@@ -23,15 +45,161 @@
       <div id="chatHeader">Select a chat</div>
       <div id="chatBox"></div>
       <textarea id="messageInput" placeholder="Type a message"></textarea>
-      <button onclick="sendAgentReply()">Send</button>
-      <button onclick="closeChat()">Close Chat</button>
-      <button onclick="returnToBot()">Return to Bot</button>
+      <div class="buttons-group">
+        <button onclick="sendAgentReply()">Send</button>
+        <button onclick="closeChat()">Close Chat</button>
+        <button onclick="returnToBot()">Return to Bot</button>
+      </div>
     </div>
   </div>
 
+  <!-- Firebase scripts -->
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore-compat.js"></script>
+
+  <!-- Your firebase-config.js must export `firebaseConfig` -->
   <script src="firebase-config.js"></script>
-  <script src="app.js"></script>
+
+  <script>
+    // Replace with your actual backend URL from Render
+    const RENDER_BACKEND_URL = 'https://aisassistantdvdhs.onrender.com';
+
+    // Firebase initialization
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let currentAgentName = null;
+    let currentChatUser = null; // user phone or id
+    let chatsUnsubscribe = null;
+    let messagesUnsubscribe = null;
+
+    const chatListEl = document.getElementById('chatList');
+    const chatHeaderEl = document.getElementById('chatHeader');
+    const chatBoxEl = document.getElementById('chatBox');
+    const messageInputEl = document.getElementById('messageInput');
+    const agentNameInput = document.getElementById('agentName');
+
+    // Login as agent
+    function setAgent() {
+      const name = agentNameInput.value.trim();
+      if (!name) {
+        alert('Please enter your name to login');
+        return;
+      }
+      currentAgentName = name;
+      agentNameInput.disabled = true;
+      loadChats();
+    }
+
+    // Load chats assigned to agent or all active chats
+    function loadChats() {
+      if (chatsUnsubscribe) chatsUnsubscribe();
+
+      chatsUnsubscribe = db.collection('users')
+        .where('assignedAgent', '==', currentAgentName) // or remove this filter to show all active
+        .where('status', '!=', 'closed')
+        .onSnapshot(snapshot => {
+          chatListEl.innerHTML = '';
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const li = document.createElement('li');
+            li.textContent = data.agentName ? `${data.agentName} (You)` : doc.id;
+            li.dataset.user = doc.id;
+            li.classList.toggle('active', doc.id === currentChatUser);
+            li.onclick = () => selectChat(doc.id);
+            chatListEl.appendChild(li);
+          });
+        });
+    }
+
+    // Select a chat from sidebar list
+    function selectChat(userId) {
+      if (messagesUnsubscribe) messagesUnsubscribe();
+      currentChatUser = userId;
+      chatHeaderEl.textContent = `Chat with ${userId}`;
+      chatBoxEl.innerHTML = '';
+
+      messagesUnsubscribe = db.collection('messages')
+        .where('chatId', '==', currentChatUser)
+        .orderBy('timestamp')
+        .onSnapshot(snapshot => {
+          chatBoxEl.innerHTML = '';
+          snapshot.forEach(doc => {
+            const msg = doc.data();
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message');
+            msgDiv.classList.add(msg.fromAgent ? 'agent' : 'user');
+            msgDiv.textContent = msg.text;
+            chatBoxEl.appendChild(msgDiv);
+          });
+          chatBoxEl.scrollTop = chatBoxEl.scrollHeight;
+        });
+    }
+
+    // Send a reply message as agent
+    async function sendAgentReply() {
+      if (!currentAgentName) {
+        alert('Please login as agent first');
+        return;
+      }
+      if (!currentChatUser) {
+        alert('Please select a chat first');
+        return;
+      }
+      const text = messageInputEl.value.trim();
+      if (!text) return alert('Please type a message');
+
+      // Save message to Firestore for UI update
+      await db.collection('messages').add({
+        chatId: currentChatUser,
+        fromAgent: true,
+        text,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // Send via backend /send API to WhatsApp Cloud
+      try {
+        const res = await fetch(`${RENDER_BACKEND_URL}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: currentChatUser,
+            message: text,
+          }),
+        });
+
+        if (!res.ok) throw new Error('Failed to send message');
+
+        messageInputEl.value = '';
+      } catch (err) {
+        alert('Error sending message: ' + err.message);
+      }
+    }
+
+    // Close chat: mark status as closed
+    async function closeChat() {
+      if (!currentChatUser) return alert('Select a chat first');
+      await db.collection('users').doc(currentChatUser).set({ status: 'closed' }, { merge: true });
+      chatBoxEl.innerHTML = '';
+      chatHeaderEl.textContent = 'Select a chat';
+      currentChatUser = null;
+      loadChats();
+    }
+
+    // Return user to bot: clear assignedAgent and reset status
+    async function returnToBot() {
+      if (!currentChatUser) return alert('Select a chat first');
+      await db.collection('users').doc(currentChatUser).set({
+        assignedAgent: null,
+        agentName: null,
+        status: 'bot',
+      }, { merge: true });
+      chatBoxEl.innerHTML = '';
+      chatHeaderEl.textContent = 'Select a chat';
+      currentChatUser = null;
+      loadChats();
+    }
+
+  </script>
 </body>
 </html>
