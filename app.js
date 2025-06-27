@@ -10,6 +10,102 @@ const firebaseConfig = {
   measurementId: "G-E6H9E9DLCP"
 };
 
+try {
+  firebase.initializeApp(firebaseConfig);
+  console.log("Firebase initialized successfully");
+} catch (err) {
+  console.error("Firebase initialization error:", err);
+}
+
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Debug Firestore connection
+db.collection('users').limit(1).get()
+  .then(snap => {
+    console.log(`Firestore test: Found ${snap.size} users`);
+  })
+  .catch(err => {
+    console.error("Firestore connection error:", err);
+  });
+
+// Enhanced setupRealTimeListeners
+function setupRealTimeListeners() {
+  console.log("Setting up listeners...");
+  
+  // Users collection
+  unsubscribeConversations = db.collection('users')
+    .orderBy('lastActive', 'desc')
+    .limit(50)
+    .onSnapshot(
+      snapshot => {
+        console.log(`Received ${snapshot.size} user documents`);
+        
+        if (snapshot.empty) {
+          renderEmptyState("No conversations found", "Check if users collection exists in Firestore");
+          return;
+        }
+
+        conversations = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          conversations.push({
+            id: doc.id,
+            name: data.profileName || `User ${doc.id}`,
+            lastMessage: data.lastMessage || "No messages yet",
+            lastActive: data.lastActive?.toDate?.() || new Date(),
+            businessType: data.lastBusinessType || "unknown",
+            status: data.status || "active"
+          });
+        });
+        
+        renderConversations();
+        
+        // Auto-select first conversation if none selected
+        if (!selectedConversation && conversations.length > 0) {
+          selectConversation(conversations[0].id);
+        }
+      },
+      error => {
+        console.error("Users listener error:", error);
+        renderEmptyState("Error loading conversations", error.message);
+      }
+    );
+}
+
+// New helper function
+function renderEmptyState(title, message) {
+  conversationList.innerHTML = `
+    <div class="empty-state">
+      <i class="fas fa-exclamation-triangle"></i>
+      <h3>${title}</h3>
+      <p>${message}</p>
+      <button id="refresh-btn" class="refresh-button">
+        <i class="fas fa-sync-alt"></i> Refresh
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('refresh-btn')?.addEventListener('click', setupRealTimeListeners);
+}
+
+// Initialize the app
+function initApp() {
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      console.log("User signed in:", user.email);
+      currentUser = user;
+      authButton.textContent = 'Sign Out';
+      setupRealTimeListeners();
+    } else {
+      console.log("No user signed in");
+      currentUser = null;
+      authButton.textContent = 'Sign In';
+      clearConversations();
+    }
+  });
+
+
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
