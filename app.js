@@ -225,11 +225,6 @@ function renderMessages(phoneNumber) {
     messageContent = `[Unknown message type: ${msg.type}]`;
 }
 
-        else if (msg.type === 'interactive') {
-            const interactive = msg.interactive || msg.message?.interactive;
-            if (interactive?.type === 'button_reply') {
-                messageContent = `[Button] ${interactive.button_reply?.title || interactive.button_reply?.id}`;
-            } 
             else if (interactive?.type === 'list_reply') {
                 messageContent = `[List] ${interactive.list_reply?.title || interactive.list_reply?.id}`;
             }
