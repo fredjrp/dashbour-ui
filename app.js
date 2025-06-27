@@ -188,52 +188,38 @@ function renderConversations() {
     });
 }
 
-// Render messages for a conversation
 function renderMessages(phoneNumber) {
     if (!messages[phoneNumber]?.length) {
         messageContainer.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
         return;
     }
-    
+
     messageContainer.innerHTML = '';
-    
+
     messages[phoneNumber].forEach(msg => {
         const isOutgoing = msg.direction === 'outgoing';
         const messageTime = formatTime(msg.timestamp);
         let messageContent = '';
-        
-        // Handle different message types from your webhook structure
-            if (msg.type === 'text') {
-    messageContent =
-      msg.text?.body ||
-      msg.message?.text?.body ||
-      msg.message?.body || // sometimes stored flat
-      '[Text]';
-} else if (msg.type === 'interactive') {
-    const interactive = msg.interactive || msg.message?.interactive;
-    if (interactive?.type === 'button_reply') {
-        messageContent = `[Button] ${interactive.button_reply?.title || interactive.button_reply?.id}`;
-    } else if (interactive?.type === 'list_reply') {
-        messageContent = `[List] ${interactive.list_reply?.title || interactive.list_reply?.id}`;
-    } else {
-        messageContent = `[Interactive] ${JSON.stringify(interactive).slice(0, 100)}...`;
-    }
-} else if (msg.message) {
-    // fallback for unknown structure
-    messageContent = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
-} else {
-    messageContent = `[Unknown message type: ${msg.type}]`;
-}
 
-            else if (interactive?.type === 'list_reply') {
+        // Handle known message types
+        if (msg.type === 'text') {
+            messageContent =
+                msg.text?.body ||
+                msg.message?.text?.body ||
+                msg.message?.body ||
+                '[Text]';
+        } else if (msg.type === 'interactive') {
+            const interactive = msg.interactive || msg.message?.interactive;
+            if (interactive?.type === 'button_reply') {
+                messageContent = `[Button] ${interactive.button_reply?.title || interactive.button_reply?.id}`;
+            } else if (interactive?.type === 'list_reply') {
                 messageContent = `[List] ${interactive.list_reply?.title || interactive.list_reply?.id}`;
+            } else {
+                messageContent = `[Interactive] ${JSON.stringify(interactive).slice(0, 100)}...`;
             }
-        }
-        else if (msg.message) {
-            // Fallback to show raw message structure
+        } else if (msg.message) {
             messageContent = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
-        }
-        else {
+        } else {
             messageContent = `[Unknown message type: ${msg.type}]`;
         }
 
@@ -245,7 +231,7 @@ function renderMessages(phoneNumber) {
         `;
         messageContainer.appendChild(messageElement);
     });
-    
+
     messageContainer.scrollTop = messageContainer.scrollHeight;
 }
 
