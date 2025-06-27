@@ -63,7 +63,7 @@ function initApp() {
         if (currentUser) {
             auth.signOut();
         } else {
-            auth.signInWithEmailAndPassword('your-email@example.com', 'your-password')
+            auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
                 .catch(error => {
                     console.error('Authentication error:', error);
                     alert('Authentication failed: ' + error.message);
