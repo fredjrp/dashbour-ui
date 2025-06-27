@@ -50,12 +50,14 @@ function initApp() {
             currentUser = user;
             authButton.textContent = 'Sign Out';
             setupRealTimeListeners();
+            console.log('User signed in:', user.email);
         } else {
             currentUser = null;
             authButton.textContent = 'Sign In';
             if (unsubscribeConversations) unsubscribeConversations();
             if (unsubscribeMessages) unsubscribeMessages();
             clearConversations();
+            console.log('User signed out');
         }
     });
 
@@ -63,11 +65,19 @@ function initApp() {
         if (currentUser) {
             auth.signOut();
         } else {
-            auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
-                .catch(error => {
-                    console.error('Authentication error:', error);
-                    alert('Authentication failed: ' + error.message);
-                });
+            const email = prompt('Enter your email:');
+            const password = prompt('Enter your password:');
+            
+            if (email && password) {
+                auth.signInWithEmailAndPassword(email, password)
+                    .then(() => {
+                        console.log('Sign in successful');
+                    })
+                    .catch(error => {
+                        console.error('Authentication error:', error);
+                        alert('Authentication failed: ' + error.message);
+                    });
+            }
         }
     });
 
