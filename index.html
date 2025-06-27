@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fred's Inc - WhatsApp Bot Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <img src="https://via.placeholder.com/40" alt="Logo" class="logo">
+                <h1>WhatsApp Bot Monitor</h1>
+            </div>
+            <div class="header-right">
+                <div class="status-indicator">
+                    <span class="status-dot active"></span>
+                    <span>Connected</span>
+                </div>
+                <button id="auth-button" class="auth-button">Sign In</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="search-container">
+                    <input type="text" placeholder="Search conversations..." class="search-input">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+                <div class="conversation-list" id="conversation-list">
+                    <!-- Conversations will be loaded here -->
+                </div>
+            </aside>
+
+            <main class="chat-container">
+                <div class="chat-header">
+                    <div class="chat-info">
+                        <h2 id="current-chat-name">Select a conversation</h2>
+                        <p id="current-chat-number"></p>
+                    </div>
+                    <div class="chat-actions">
+                        <button id="transfer-btn" class="action-button" disabled>
+                            <i class="fas fa-user-plus"></i> Transfer to Human
+                        </button>
+                        <button id="ai-btn" class="action-button" disabled>
+                            <i class="fas fa-robot"></i> AI Mode
+                        </button>
+                    </div>
+                </div>
+
+                <div class="message-container" id="message-container">
+                    <div class="empty-state">
+                        <i class="fas fa-comments"></i>
+                        <p>Select a conversation to view messages</p>
+                    </div>
+                </div>
+
+                <div class="message-input-container" id="message-input-container" style="display: none;">
+                    <input type="text" id="message-input" placeholder="Type a message..." disabled>
+                    <button id="send-button" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </main>
+
+            <aside class="user-details">
+                <div class="user-profile">
+                    <div class="empty-state">
+                        <i class="fas fa-user"></i>
+                        <p>No user selected</p>
+                    </div>
+                    <div id="user-details-content" style="display: none;">
+                        <div class="user-avatar">
+                            <img src="https://via.placeholder.com/80" alt="User" id="user-avatar">
+                        </div>
+                        <h3 id="user-name">User Name</h3>
+                        <p id="user-phone">+254 700 000 000</p>
+                        
+                        <div class="user-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">Last Active</span>
+                                <span class="meta-value" id="last-active">Just now</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Business Type</span>
+                                <span class="meta-value" id="business-type">Unknown</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">Status</span>
+                                <span class="meta-value" id="user-status">Active</span>
+                            </div>
+                        </div>
+
+                        <div class="user-notes">
+                            <h4>Notes</h4>
+                            <textarea id="user-notes" placeholder="Add notes about this user..."></textarea>
+                            <button id="save-notes">Save Notes</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
