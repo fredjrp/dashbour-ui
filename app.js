@@ -15,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// DOM elements
+// DOM Elements (safe access)
 const conversationList = document.getElementById('conversation-list');
 const messageContainer = document.getElementById('message-container');
 const messageInput = document.getElementById('message-input');
@@ -35,7 +35,7 @@ const userStatus = document.getElementById('user-status');
 const userNotes = document.getElementById('user-notes');
 const saveNotes = document.getElementById('save-notes');
 
-// State variables
+// App state
 let currentUser = null;
 let selectedConversation = null;
 let conversations = [];
@@ -43,273 +43,250 @@ let messages = {};
 let unsubscribeConversations = null;
 let unsubscribeMessages = null;
 
-// Initialize the app
+// App entry point
 function initApp() {
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            currentUser = user;
-            authButton.textContent = 'Sign Out';
-            setupRealTimeListeners();
-        } else {
-            currentUser = null;
-            authButton.textContent = 'Sign In';
-            if (unsubscribeConversations) unsubscribeConversations();
-            if (unsubscribeMessages) unsubscribeMessages();
-            clearConversations();
-        }
-    });
-
-    authButton.addEventListener('click', () => {
-        if (currentUser) {
-            auth.signOut();
-        } else {
-            auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
-                .catch(error => {
-                    console.error('Authentication error:', error);
-                    alert('Authentication failed: ' + error.message);
-                });
-        }
-    });
-
-    // Conversation selection
-    conversationList.addEventListener('click', (e) => {
-        const conversationItem = e.target.closest('.conversation-item');
-        if (conversationItem) {
-            const phoneNumber = conversationItem.dataset.phone;
-            selectConversation(phoneNumber);
-        }
-    });
-
-    // Message sending
-    sendButton.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
-
-    // Transfer/AI buttons
-    transferBtn.addEventListener('click', transferToHuman);
-    aiBtn.addEventListener('click', switchToAI);
-    saveNotes.addEventListener('click', saveUserNotes);
-}
-
-// Set up real-time Firestore listeners
-function setupRealTimeListeners() {
-    // Listen for conversations
-    unsubscribeConversations = db.collection('users')
-        .orderBy('lastActive', 'desc')
-        .limit(50)
-        .onSnapshot(snapshot => {
-            conversations = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                conversations.push({
-                    id: doc.id,
-                    ...data,
-                    // Convert lastActive to Date if it's a timestamp
-                    lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
-                });
-            });
-            renderConversations();
-        }, error => {
-            console.error('Conversations listener error:', error);
-        });
-}
-
-// Select conversation and load messages
-function selectConversation(phoneNumber) {
-    selectedConversation = phoneNumber;
-    
-    // Update UI
-    document.querySelectorAll('.conversation-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.phone === phoneNumber);
-    });
-    
-    const conversation = conversations.find(c => c.id === phoneNumber);
-    if (conversation) {
-        currentChatName.textContent = conversation.profileName || 'Unknown';
-        currentChatNumber.textContent = conversation.id;
-        updateUserDetails(conversation);
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      if (authButton) authButton.textContent = 'Sign Out';
+      setupRealTimeListeners();
     } else {
-        currentChatName.textContent = phoneNumber;
-        currentChatNumber.textContent = phoneNumber;
+      currentUser = null;
+      if (authButton) authButton.textContent = 'Sign In';
+      if (unsubscribeConversations) unsubscribeConversations();
+      if (unsubscribeMessages) unsubscribeMessages();
+      clearConversations();
     }
-    
-    // Show message input
-    messageInputContainer.style.display = 'flex';
-    [messageInput, sendButton, transferBtn, aiBtn].forEach(el => el.disabled = false);
-    
-    // Clear and load messages
-    messageContainer.innerHTML = '';
-    if (unsubscribeMessages) unsubscribeMessages();
-    
-    unsubscribeMessages = db.collection('whatsapp_logs')
-        .where('from', '==', phoneNumber)
-        .orderBy('timestamp', 'asc')
-        .onSnapshot(snapshot => {
-            messages[phoneNumber] = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                messages[phoneNumber].push({
-                    id: doc.id,
-                    ...data,
-                    // Convert timestamp to Date
-                    timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
-                });
-            });
-            renderMessages(phoneNumber);
-        }, error => {
-            console.error('Messages listener error:', error);
+  });
+
+  if (authButton) {
+    authButton.addEventListener('click', () => {
+      if (currentUser) {
+        auth.signOut();
+      } else {
+        auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
+          .catch(error => {
+            console.error('❌ Authentication failed:', error);
+            alert('Login error: ' + error.message);
+          });
+      }
+    });
+  }
+
+  if (conversationList) {
+    conversationList.addEventListener('click', (e) => {
+      const item = e.target.closest('.conversation-item');
+      if (item) {
+        const phone = item.dataset.phone;
+        selectConversation(phone);
+      }
+    });
+  }
+
+  if (sendButton) sendButton.addEventListener('click', sendMessage);
+  if (messageInput) {
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  }
+
+  if (transferBtn) transferBtn.addEventListener('click', transferToHuman);
+  if (aiBtn) aiBtn.addEventListener('click', switchToAI);
+  if (saveNotes) saveNotes.addEventListener('click', saveUserNotes);
+}
+
+// Real-time Firestore listener
+function setupRealTimeListeners() {
+  unsubscribeConversations = db.collection('users')
+    .orderBy('lastActive', 'desc')
+    .limit(50)
+    .onSnapshot(snapshot => {
+      conversations = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        conversations.push({
+          id: doc.id,
+          ...data,
+          lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
         });
+      });
+      renderConversations();
+    }, error => console.error('❌ Firestore listener error:', error));
 }
 
-// Render conversations list
+// Render UI: Conversations
 function renderConversations() {
-    conversationList.innerHTML = conversations.length ? '' : 
-        '<div class="empty-state"><p>No conversations found</p></div>';
-    
-    conversations.forEach(conversation => {
-        const lastMessage = conversation.lastMessage || 'No messages yet';
-        const lastActiveTime = formatTime(conversation.lastActive);
-        
-        const conversationItem = document.createElement('div');
-        conversationItem.className = `conversation-item ${selectedConversation === conversation.id ? 'active' : ''}`;
-        conversationItem.dataset.phone = conversation.id;
-        conversationItem.innerHTML = `
-            <div class="conversation-avatar">
-                ${conversation.profileName ? conversation.profileName.charAt(0).toUpperCase() : '?'}
-            </div>
-            <div class="conversation-info">
-                <div class="conversation-name">${conversation.profileName || conversation.id}</div>
-                <div class="conversation-preview">${truncate(lastMessage, 30)}</div>
-            </div>
-            <div class="conversation-time">${lastActiveTime}</div>
-        `;
-        conversationList.appendChild(conversationItem);
-    });
+  if (!conversationList) return;
+  conversationList.innerHTML = conversations.length ? '' : '<div class="empty-state"><p>No conversations found</p></div>';
+
+  conversations.forEach(convo => {
+    const last = convo.lastMessage || 'No messages yet';
+    const lastSeen = formatTime(convo.lastActive);
+    const item = document.createElement('div');
+    item.className = `conversation-item ${selectedConversation === convo.id ? 'active' : ''}`;
+    item.dataset.phone = convo.id;
+    item.innerHTML = `
+      <div class="conversation-avatar">${(convo.profileName || '?')[0].toUpperCase()}</div>
+      <div class="conversation-info">
+        <div class="conversation-name">${convo.profileName || convo.id}</div>
+        <div class="conversation-preview">${truncate(last, 30)}</div>
+      </div>
+      <div class="conversation-time">${lastSeen}</div>
+    `;
+    conversationList.appendChild(item);
+  });
 }
 
+// Select a conversation
+function selectConversation(phoneNumber) {
+  selectedConversation = phoneNumber;
+  if (!phoneNumber) return;
+
+  document.querySelectorAll('.conversation-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.phone === phoneNumber)
+  );
+
+  const convo = conversations.find(c => c.id === phoneNumber);
+  if (convo) {
+    if (currentChatName) currentChatName.textContent = convo.profileName || 'Unknown';
+    if (currentChatNumber) currentChatNumber.textContent = convo.id;
+    updateUserDetails(convo);
+  } else {
+    currentChatName.textContent = phoneNumber;
+    currentChatNumber.textContent = phoneNumber;
+  }
+
+  if (messageInputContainer) messageInputContainer.style.display = 'flex';
+  [messageInput, sendButton, transferBtn, aiBtn].forEach(el => el && (el.disabled = false));
+
+  messageContainer.innerHTML = '';
+
+  if (unsubscribeMessages) unsubscribeMessages();
+
+  unsubscribeMessages = db.collection('whatsapp_logs')
+    .where('from', '==', phoneNumber)
+    .orderBy('timestamp', 'asc')
+    .onSnapshot(snapshot => {
+      messages[phoneNumber] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        messages[phoneNumber].push({
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+        });
+      });
+      renderMessages(phoneNumber);
+    }, err => console.error('❌ Message load error:', err));
+}
+
+// Render messages
 function renderMessages(phoneNumber) {
-    if (!messages[phoneNumber]?.length) {
-        messageContainer.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
-        return;
+  if (!messageContainer) return;
+  const msgList = messages[phoneNumber];
+  if (!msgList?.length) {
+    messageContainer.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
+    return;
+  }
+
+  messageContainer.innerHTML = '';
+
+  msgList.forEach(msg => {
+    const isOut = msg.direction === 'outgoing';
+    const time = formatTime(msg.timestamp);
+    let content = '';
+
+    if (msg.type === 'text') {
+      content = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Text]';
+    } else if (msg.type === 'interactive') {
+      const int = msg.interactive || msg.message?.interactive;
+      if (int?.type === 'button_reply') {
+        content = `[Button] ${int.button_reply?.title || int.button_reply?.id}`;
+      } else if (int?.type === 'list_reply') {
+        content = `[List] ${int.list_reply?.title || int.list_reply?.id}`;
+      } else {
+        content = `[Interactive] ${JSON.stringify(int).slice(0, 100)}...`;
+      }
+    } else if (msg.message) {
+      content = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
+    } else {
+      content = `[Unknown: ${msg.type}]`;
     }
 
-    messageContainer.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = `message ${isOut ? 'message-outgoing' : 'message-incoming'}`;
+    el.innerHTML = `<div class="message-content">${content}</div><div class="message-time">${time}</div>`;
+    messageContainer.appendChild(el);
+  });
 
-    messages[phoneNumber].forEach(msg => {
-        const isOutgoing = msg.direction === 'outgoing';
-        const messageTime = formatTime(msg.timestamp);
-        let messageContent = '';
-
-        // Handle known message types
-        if (msg.type === 'text') {
-            messageContent =
-                msg.text?.body ||
-                msg.message?.text?.body ||
-                msg.message?.body ||
-                '[Text]';
-        } else if (msg.type === 'interactive') {
-            const interactive = msg.interactive || msg.message?.interactive;
-            if (interactive?.type === 'button_reply') {
-                messageContent = `[Button] ${interactive.button_reply?.title || interactive.button_reply?.id}`;
-            } else if (interactive?.type === 'list_reply') {
-                messageContent = `[List] ${interactive.list_reply?.title || interactive.list_reply?.id}`;
-            } else {
-                messageContent = `[Interactive] ${JSON.stringify(interactive).slice(0, 100)}...`;
-            }
-        } else if (msg.message) {
-            messageContent = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
-        } else {
-            messageContent = `[Unknown message type: ${msg.type}]`;
-        }
-
-        const messageElement = document.createElement('div');
-        messageElement.className = `message ${isOutgoing ? 'message-outgoing' : 'message-incoming'}`;
-        messageElement.innerHTML = `
-            <div class="message-content">${messageContent}</div>
-            <div class="message-time">${messageTime}</div>
-        `;
-        messageContainer.appendChild(messageElement);
-    });
-
-    messageContainer.scrollTop = messageContainer.scrollHeight;
+  messageContainer.scrollTop = messageContainer.scrollHeight;
 }
 
-// Update user details panel
-function updateUserDetails(conversation) {
-    userDetailsContent.style.display = 'block';
-    userName.textContent = conversation.profileName || 'Unknown';
-    userPhone.textContent = conversation.id;
-    lastActive.textContent = formatTime(conversation.lastActive, true);
-    businessType.textContent = conversation.lastBusinessType ? 
-        conversation.lastBusinessType.replace('biz_', '').replace('_', ' ') : 'Not specified';
-    userStatus.textContent = conversation.status || 'active';
-    userNotes.value = conversation.notes || '';
+// Update user profile panel
+function updateUserDetails(convo) {
+  if (!userDetailsContent) return;
+  userDetailsContent.style.display = 'block';
+  if (userName) userName.textContent = convo.profileName || 'Unknown';
+  if (userPhone) userPhone.textContent = convo.id;
+  if (lastActive) lastActive.textContent = formatTime(convo.lastActive, true);
+  if (businessType) businessType.textContent = convo.lastBusinessType?.replace('biz_', '').replace('_', ' ') || 'Not specified';
+  if (userStatus) userStatus.textContent = convo.status || 'active';
+  if (userNotes) userNotes.value = convo.notes || '';
 }
 
-// Transfer to human agent
+// Send message
+function sendMessage() {
+  const text = messageInput?.value.trim();
+  if (!text || !selectedConversation) return;
+  console.log(`📤 Sending message to ${selectedConversation}:`, text);
+  messageInput.value = '';
+}
+
+// Transfer buttons
 function transferToHuman() {
-    if (!selectedConversation) return;
-    alert(`Conversation with ${selectedConversation} transferred to human agent`);
-    transferBtn.disabled = true;
-    aiBtn.disabled = false;
+  if (!selectedConversation) return;
+  alert(`Conversation transferred to human.`);
+  transferBtn.disabled = true;
+  aiBtn.disabled = false;
 }
 
-// Switch to AI mode
 function switchToAI() {
-    if (!selectedConversation) return;
-    alert(`Conversation with ${selectedConversation} switched to AI mode`);
-    transferBtn.disabled = false;
-    aiBtn.disabled = true;
+  if (!selectedConversation) return;
+  alert(`Conversation switched to AI.`);
+  transferBtn.disabled = false;
+  aiBtn.disabled = true;
 }
 
 // Save user notes
 function saveUserNotes() {
-    if (!selectedConversation) return;
-    const notes = userNotes.value;
-    
-    db.collection('users').doc(selectedConversation).update({
-        notes: notes,
-        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(() => {
-        alert('Notes saved successfully');
-    }).catch(error => {
-        console.error('Error saving notes:', error);
-        alert('Failed to save notes');
-    });
+  if (!selectedConversation) return;
+  const notes = userNotes?.value;
+  db.collection('users').doc(selectedConversation).update({
+    notes,
+    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(() => alert('✅ Notes saved.')).catch(err => alert('❌ Failed to save notes: ' + err.message));
 }
 
-// Send message (simulated for UI)
-function sendMessage() {
-    const messageText = messageInput.value.trim();
-    if (!messageText || !selectedConversation) return;
-    
-    // In a real implementation, this would send via your webhook
-    console.log("Would send message:", messageText);
-    messageInput.value = '';
+// Helpers
+function formatTime(ts, full = false) {
+  if (!ts) return 'Unknown';
+  const d = ts instanceof Date ? ts : new Date(ts);
+  return full ? d.toLocaleString() : d.toLocaleTimeString();
 }
 
-// Helper functions
-function formatTime(timestamp, fullDate = false) {
-    if (!timestamp) return 'Unknown';
-    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    return fullDate ? date.toLocaleString() : date.toLocaleTimeString();
-}
-
-function truncate(text, maxLength) {
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+function truncate(text, max) {
+  return text?.length > max ? text.slice(0, max) + '...' : text;
 }
 
 function clearConversations() {
-    conversationList.innerHTML = '<div class="empty-state"><p>Sign in to view conversations</p></div>';
-    messageContainer.innerHTML = '<div class="empty-state"><p>Select a conversation to view messages</p></div>';
-    currentChatName.textContent = 'Select a conversation';
-    currentChatNumber.textContent = '';
-    userDetailsContent.style.display = 'none';
-    messageInputContainer.style.display = 'none';
-    transferBtn.disabled = true;
-    aiBtn.disabled = true;
+  if (conversationList) conversationList.innerHTML = '<div class="empty-state"><p>Sign in to view conversations</p></div>';
+  if (messageContainer) messageContainer.innerHTML = '<div class="empty-state"><p>Select a conversation</p></div>';
+  if (currentChatName) currentChatName.textContent = 'Select a conversation';
+  if (currentChatNumber) currentChatNumber.textContent = '';
+  if (userDetailsContent) userDetailsContent.style.display = 'none';
+  if (messageInputContainer) messageInputContainer.style.display = 'none';
+  [transferBtn, aiBtn].forEach(btn => btn && (btn.disabled = true));
 }
 
-// Initialize the app
+// Start app
 document.addEventListener('DOMContentLoaded', initApp);
