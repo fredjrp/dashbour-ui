@@ -13,10 +13,10 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// WhatsApp number to load
+// Target user
 const targetPhoneNumber = "254703738935";
 
-// DOM elements
+// DOM Elements
 const conversationList = document.getElementById('conversation-list');
 const messageContainer = document.getElementById('message-container');
 const messageInput = document.getElementById('message-input');
@@ -38,11 +38,11 @@ const saveNotes = document.getElementById('save-notes');
 let messages = {};
 let unsubscribeMessages = null;
 
-// Initialize app
+// App Init
 function initApp() {
-  loadTargetConversation();
+  loadOrCreateUser();
   sendButton.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keypress', (e) => {
+  messageInput.addEventListener('keypress', e => {
     if (e.key === 'Enter') sendMessage();
   });
   transferBtn.addEventListener('click', transferToHuman);
@@ -50,136 +50,134 @@ function initApp() {
   saveNotes.addEventListener('click', saveUserNotes);
 }
 
-// Load one specific conversation
-function loadTargetConversation() {
-  db.collection('users').doc(targetPhoneNumber).get().then(doc => {
-    if (doc.exists) {
-      const data = doc.data();
-      const conversation = {
-        id: doc.id,
-        ...data,
-        lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
-      };
-
-      renderSingleConversation(conversation);
-      selectConversation(conversation);
+// Load user or create if not exists
+function loadOrCreateUser() {
+  const userRef = db.collection('users').doc(targetPhoneNumber);
+  userRef.get().then(doc => {
+    if (!doc.exists) {
+      return userRef.set({
+        profileName: "Fred Auto",
+        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
+        status: "active",
+        notes: "",
+        lastMessage: "This is a test message"
+      }).then(() => userRef.get());
     } else {
-      conversationList.innerHTML = `<p>No data found for ${targetPhoneNumber}</p>`;
+      return doc;
     }
-  }).catch(err => {
-    console.error("🔥 Error loading conversation:", err);
-    conversationList.innerHTML = `<p>Error loading user</p>`;
+  }).then(doc => {
+    const data = doc.data();
+    const conversation = {
+      id: doc.id,
+      ...data,
+      lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date()
+    };
+    renderSingleConversation(conversation);
+    selectConversation(conversation);
+  }).catch(error => {
+    console.error("Error loading or creating user:", error);
+    conversationList.innerHTML = "<p>⚠️ Failed to load user</p>";
   });
 }
 
-function renderSingleConversation(conversation) {
-  const lastMessage = conversation.lastMessage || 'No messages yet';
-  const lastActiveTime = formatTime(conversation.lastActive);
+function renderSingleConversation(convo) {
   const item = document.createElement('div');
   item.className = 'conversation-item active';
-  item.dataset.phone = conversation.id;
+  item.dataset.phone = convo.id;
   item.innerHTML = `
-    <div class="conversation-avatar">${(conversation.profileName || '?')[0].toUpperCase()}</div>
+    <div class="conversation-avatar">${(convo.profileName || '?')[0].toUpperCase()}</div>
     <div class="conversation-info">
-      <div class="conversation-name">${conversation.profileName || conversation.id}</div>
-      <div class="conversation-preview">${truncate(lastMessage, 30)}</div>
+      <div class="conversation-name">${convo.profileName || convo.id}</div>
+      <div class="conversation-preview">${truncate(convo.lastMessage || '', 30)}</div>
     </div>
-    <div class="conversation-time">${lastActiveTime}</div>
+    <div class="conversation-time">${formatTime(convo.lastActive)}</div>
   `;
+  conversationList.innerHTML = "";
   conversationList.appendChild(item);
 }
 
-function selectConversation(conversation) {
-  currentChatName.textContent = conversation.profileName || 'Unknown';
-  currentChatNumber.textContent = conversation.id;
-  updateUserDetails(conversation);
+function selectConversation(convo) {
+  currentChatName.textContent = convo.profileName || "User";
+  currentChatNumber.textContent = convo.id;
+  updateUserDetails(convo);
 
   messageInputContainer.style.display = 'flex';
   [messageInput, sendButton, transferBtn, aiBtn].forEach(el => el.disabled = false);
 
   if (unsubscribeMessages) unsubscribeMessages();
-
   unsubscribeMessages = db.collection('whatsapp_logs')
-    .where('from', '==', conversation.id)
+    .where('from', '==', convo.id)
     .orderBy('timestamp', 'asc')
     .onSnapshot(snapshot => {
-      messages[conversation.id] = [];
+      messages[convo.id] = [];
       snapshot.forEach(doc => {
         const data = doc.data();
-        messages[conversation.id].push({
+        messages[convo.id].push({
           id: doc.id,
           ...data,
-          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date()
         });
       });
-      renderMessages(conversation.id);
-    }, err => console.error('🔥 Message fetch error:', err));
+      renderMessages(convo.id);
+    });
 }
 
 function renderMessages(phoneNumber) {
-  const msgList = messages[phoneNumber];
-  if (!msgList?.length) {
-    messageContainer.innerHTML = '<div class="empty-state"><p>No messages yet</p></div>';
+  const list = messages[phoneNumber];
+  if (!list?.length) {
+    messageContainer.innerHTML = '<div class="empty-state"><p>No messages found</p></div>';
     return;
   }
 
   messageContainer.innerHTML = '';
-  msgList.forEach(msg => {
+  list.forEach(msg => {
     const isOut = msg.direction === 'outgoing';
     const time = formatTime(msg.timestamp);
     let content = '[Unknown]';
 
     if (msg.type === 'text') {
-      content = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Text]';
+      content = msg.text?.body || msg.message?.text?.body || '[Text]';
     } else if (msg.type === 'interactive') {
-      const int = msg.interactive || msg.message?.interactive;
-      if (int?.type === 'button_reply') {
-        content = `[Button] ${int.button_reply?.title || int.button_reply?.id}`;
-      } else if (int?.type === 'list_reply') {
-        content = `[List] ${int.list_reply?.title || int.list_reply?.id}`;
-      } else {
-        content = `[Interactive] ${JSON.stringify(int).slice(0, 100)}...`;
-      }
-    } else if (msg.message) {
-      content = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
+      const i = msg.interactive || msg.message?.interactive;
+      content = `[${i?.type}] ${JSON.stringify(i).slice(0, 50)}...`;
     }
 
-    const el = document.createElement('div');
-    el.className = `message ${isOut ? 'message-outgoing' : 'message-incoming'}`;
-    el.innerHTML = `<div class="message-content">${content}</div><div class="message-time">${time}</div>`;
-    messageContainer.appendChild(el);
+    const div = document.createElement('div');
+    div.className = `message ${isOut ? 'message-outgoing' : 'message-incoming'}`;
+    div.innerHTML = `<div class="message-content">${content}</div><div class="message-time">${time}</div>`;
+    messageContainer.appendChild(div);
   });
 
   messageContainer.scrollTop = messageContainer.scrollHeight;
 }
 
-function updateUserDetails(convo) {
+function updateUserDetails(c) {
   userDetailsContent.style.display = 'block';
-  userName.textContent = convo.profileName || 'Unknown';
-  userPhone.textContent = convo.id;
-  lastActive.textContent = formatTime(convo.lastActive, true);
-  businessType.textContent = convo.lastBusinessType?.replace('biz_', '').replace('_', ' ') || 'Not specified';
-  userStatus.textContent = convo.status || 'active';
-  userNotes.value = convo.notes || '';
+  userName.textContent = c.profileName || 'User';
+  userPhone.textContent = c.id;
+  lastActive.textContent = formatTime(c.lastActive, true);
+  businessType.textContent = c.lastBusinessType || 'Not specified';
+  userStatus.textContent = c.status || 'active';
+  userNotes.value = c.notes || '';
 }
 
 function sendMessage() {
   const text = messageInput.value.trim();
   if (!text) return;
-  console.log("📤 Would send message:", text);
+  console.log("Would send:", text);
   messageInput.value = '';
 }
 
 function transferToHuman() {
-  alert("Conversation transferred to human");
+  alert("Transferred to human");
   transferBtn.disabled = true;
   aiBtn.disabled = false;
 }
 
 function switchToAI() {
-  alert("Switched to AI mode");
-  transferBtn.disabled = false;
+  alert("Switched to AI");
   aiBtn.disabled = true;
+  transferBtn.disabled = false;
 }
 
 function saveUserNotes() {
@@ -188,21 +186,19 @@ function saveUserNotes() {
     notes,
     lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
   }).then(() => {
-    alert('✅ Notes saved');
+    alert("✅ Notes saved");
   }).catch(err => {
-    alert('❌ Error saving notes: ' + err.message);
+    alert("❌ Failed to save notes");
   });
 }
 
-// Helpers
-function formatTime(ts, full = false) {
-  if (!ts) return 'Unknown';
-  const d = ts instanceof Date ? ts : new Date(ts);
+function formatTime(date, full = false) {
+  const d = date instanceof Date ? date : new Date(date);
   return full ? d.toLocaleString() : d.toLocaleTimeString();
 }
 
 function truncate(text, max) {
-  return text?.length > max ? text.slice(0, max) + '...' : text;
+  return text.length > max ? text.slice(0, max) + "..." : text;
 }
 
 document.addEventListener('DOMContentLoaded', initApp);
