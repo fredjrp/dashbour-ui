@@ -34,6 +34,7 @@ const businessType = document.getElementById('business-type');
 const userStatus = document.getElementById('user-status');
 const userNotes = document.getElementById('user-notes');
 const saveNotes = document.getElementById('save-notes');
+const errorDisplay = document.getElementById('error-display');
 
 // State variables
 let currentUser = null;
@@ -42,6 +43,18 @@ let conversations = [];
 let messages = {};
 let unsubscribeConversations = null;
 let unsubscribeMessages = null;
+
+// Display error message
+function showError(message) {
+    if (errorDisplay) {
+        errorDisplay.textContent = message;
+        errorDisplay.style.display = 'block';
+        setTimeout(() => {
+            errorDisplay.style.display = 'none';
+        }, 5000);
+    }
+    console.error(message);
+}
 
 // Initialize the app
 function initApp() {
@@ -65,8 +78,7 @@ function initApp() {
         } else {
             auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
                 .catch(error => {
-                    console.error('Authentication error:', error);
-                    alert('Authentication failed: ' + error.message);
+                    showError('Authentication failed: ' + error.message);
                 });
         }
     });
@@ -101,13 +113,23 @@ function setupRealTimeListeners() {
         .onSnapshot(snapshot => {
             conversations = [];
             snapshot.forEach(doc => {
-                const data = doc.data();
-                conversations.push({
-                    id: doc.id,
-                    ...data,
-                    lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
-                });
+                try {
+                    const data = doc.data();
+                    if (!data) {
+                        showError(`Empty data for user ${doc.id}`);
+                        return;
+                    }
+                    
+                    conversations.push({
+                        id: doc.id,
+                        ...data,
+                        lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
+                    });
+                } catch (error) {
+                    showError(`Error processing user ${doc.id}: ${error.message}`);
+                }
             });
+            
             renderConversations();
             
             // If there's no selected conversation, select the first one
@@ -115,12 +137,17 @@ function setupRealTimeListeners() {
                 selectConversation(conversations[0].id);
             }
         }, error => {
-            console.error('Conversations listener error:', error);
+            showError('Error loading conversations: ' + error.message);
         });
 }
 
 // Select conversation and load messages
 function selectConversation(phoneNumber) {
+    if (!phoneNumber) {
+        showError('No phone number provided for conversation selection');
+        return;
+    }
+
     selectedConversation = phoneNumber;
     
     // Update UI
@@ -128,14 +155,30 @@ function selectConversation(phoneNumber) {
         item.classList.toggle('active', item.dataset.phone === phoneNumber);
     });
     
+    // Find the conversation in our local cache first
     const conversation = conversations.find(c => c.id === phoneNumber);
     if (conversation) {
-        currentChatName.textContent = conversation.profileName || 'Unknown';
-        currentChatNumber.textContent = conversation.id;
-        updateUserDetails(conversation);
+        updateUIWithConversation(conversation);
     } else {
-        currentChatName.textContent = phoneNumber;
-        currentChatNumber.textContent = phoneNumber;
+        // If not found in cache, try to fetch from Firestore
+        db.collection('users').doc(phoneNumber).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    updateUIWithConversation({
+                        id: doc.id,
+                        ...data,
+                        lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
+                    });
+                } else {
+                    currentChatName.textContent = phoneNumber;
+                    currentChatNumber.textContent = phoneNumber;
+                    showError('User not found in database');
+                }
+            })
+            .catch(error => {
+                showError('Error fetching user details: ' + error.message);
+            });
     }
     
     // Show message input
@@ -146,18 +189,42 @@ function selectConversation(phoneNumber) {
     messageContainer.innerHTML = '';
     if (unsubscribeMessages) unsubscribeMessages();
     
+    loadMessages(phoneNumber);
+}
+
+function updateUIWithConversation(conversation) {
+    currentChatName.textContent = conversation.profileName || 'Unknown';
+    currentChatNumber.textContent = conversation.id;
+    updateUserDetails(conversation);
+}
+
+function loadMessages(phoneNumber) {
     unsubscribeMessages = db.collection('whatsapp_logs')
         .where('from', '==', phoneNumber)
         .orderBy('timestamp', 'asc')
         .onSnapshot(snapshot => {
+            if (!snapshot) {
+                showError('Invalid snapshot received for messages');
+                return;
+            }
+
             messages[phoneNumber] = [];
             snapshot.forEach(doc => {
-                const data = doc.data();
-                messages[phoneNumber].push({
-                    id: doc.id,
-                    ...data,
-                    timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
-                });
+                try {
+                    const data = doc.data();
+                    if (!data) {
+                        showError(`Empty message data for document ${doc.id}`);
+                        return;
+                    }
+                    
+                    messages[phoneNumber].push({
+                        id: doc.id,
+                        ...data,
+                        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+                    });
+                } catch (error) {
+                    showError(`Error processing message ${doc.id}: ${error.message}`);
+                }
             });
             renderMessages(phoneNumber);
             
@@ -166,7 +233,7 @@ function selectConversation(phoneNumber) {
                 messageContainer.scrollTop = messageContainer.scrollHeight;
             }, 100);
         }, error => {
-            console.error('Messages listener error:', error);
+            showError('Error loading messages: ' + error.message);
         });
 }
 
@@ -247,6 +314,11 @@ function renderMessages(phoneNumber) {
 
 // Update user details panel
 function updateUserDetails(conversation) {
+    if (!conversation) {
+        userDetailsContent.style.display = 'none';
+        return;
+    }
+
     userDetailsContent.style.display = 'block';
     userName.textContent = conversation.profileName || 'Unknown';
     userPhone.textContent = conversation.id;
@@ -259,7 +331,11 @@ function updateUserDetails(conversation) {
 
 // Transfer to human agent
 function transferToHuman() {
-    if (!selectedConversation) return;
+    if (!selectedConversation) {
+        showError('No conversation selected to transfer');
+        return;
+    }
+    
     alert(`Conversation with ${selectedConversation} transferred to human agent`);
     transferBtn.disabled = true;
     aiBtn.disabled = false;
@@ -267,7 +343,11 @@ function transferToHuman() {
 
 // Switch to AI mode
 function switchToAI() {
-    if (!selectedConversation) return;
+    if (!selectedConversation) {
+        showError('No conversation selected to switch to AI');
+        return;
+    }
+    
     alert(`Conversation with ${selectedConversation} switched to AI mode`);
     transferBtn.disabled = false;
     aiBtn.disabled = true;
@@ -275,8 +355,12 @@ function switchToAI() {
 
 // Save user notes
 function saveUserNotes() {
-    if (!selectedConversation) return;
-    const notes = userNotes.value;
+    if (!selectedConversation) {
+        showError('No conversation selected to save notes');
+        return;
+    }
+    
+    const notes = userNotes.value.trim();
     
     db.collection('users').doc(selectedConversation).update({
         notes: notes,
@@ -284,15 +368,22 @@ function saveUserNotes() {
     }).then(() => {
         alert('Notes saved successfully');
     }).catch(error => {
-        console.error('Error saving notes:', error);
-        alert('Failed to save notes');
+        showError('Failed to save notes: ' + error.message);
     });
 }
 
 // Send message (simulated for UI)
 function sendMessage() {
     const messageText = messageInput.value.trim();
-    if (!messageText || !selectedConversation) return;
+    if (!messageText) {
+        showError('Message cannot be empty');
+        return;
+    }
+    
+    if (!selectedConversation) {
+        showError('No conversation selected');
+        return;
+    }
     
     // In a real implementation, this would send via your webhook
     console.log("Would send message:", messageText);
@@ -323,6 +414,7 @@ function formatTime(timestamp, fullDate = false) {
 }
 
 function truncate(text, maxLength) {
+    if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
