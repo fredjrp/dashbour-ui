@@ -34,7 +34,6 @@ const businessType = document.getElementById('business-type');
 const userStatus = document.getElementById('user-status');
 const userNotes = document.getElementById('user-notes');
 const saveNotes = document.getElementById('save-notes');
-const errorDisplay = document.getElementById('error-display');
 
 // State variables
 let currentUser = null;
@@ -43,18 +42,6 @@ let conversations = [];
 let messages = {};
 let unsubscribeConversations = null;
 let unsubscribeMessages = null;
-
-// Display error message
-function showError(message) {
-    if (errorDisplay) {
-        errorDisplay.textContent = message;
-        errorDisplay.style.display = 'block';
-        setTimeout(() => {
-            errorDisplay.style.display = 'none';
-        }, 5000);
-    }
-    console.error(message);
-}
 
 // Initialize the app
 function initApp() {
@@ -78,7 +65,8 @@ function initApp() {
         } else {
             auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
                 .catch(error => {
-                    showError('Authentication failed: ' + error.message);
+                    console.error('Authentication error:', error);
+                    alert('Authentication failed: ' + error.message);
                 });
         }
     });
@@ -106,48 +94,29 @@ function initApp() {
 
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-    // Listen for conversations (users collection)
+    // Listen for conversations
     unsubscribeConversations = db.collection('users')
         .orderBy('lastActive', 'desc')
         .limit(50)
         .onSnapshot(snapshot => {
             conversations = [];
             snapshot.forEach(doc => {
-                try {
-                    const data = doc.data();
-                    if (!data) {
-                        showError(`Empty data for user ${doc.id}`);
-                        return;
-                    }
-                    
-                    conversations.push({
-                        id: doc.id,
-                        ...data,
-                        lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
-                    });
-                } catch (error) {
-                    showError(`Error processing user ${doc.id}: ${error.message}`);
-                }
+                const data = doc.data();
+                conversations.push({
+                    id: doc.id,
+                    ...data,
+                    // Convert lastActive to Date if it's a timestamp
+                    lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
+                });
             });
-            
             renderConversations();
-            
-            // If there's no selected conversation, select the first one
-            if (conversations.length > 0 && !selectedConversation) {
-                selectConversation(conversations[0].id);
-            }
         }, error => {
-            showError('Error loading conversations: ' + error.message);
+            console.error('Conversations listener error:', error);
         });
 }
 
 // Select conversation and load messages
 function selectConversation(phoneNumber) {
-    if (!phoneNumber) {
-        showError('No phone number provided for conversation selection');
-        return;
-    }
-
     selectedConversation = phoneNumber;
     
     // Update UI
@@ -155,30 +124,14 @@ function selectConversation(phoneNumber) {
         item.classList.toggle('active', item.dataset.phone === phoneNumber);
     });
     
-    // Find the conversation in our local cache first
     const conversation = conversations.find(c => c.id === phoneNumber);
     if (conversation) {
-        updateUIWithConversation(conversation);
+        currentChatName.textContent = conversation.profileName || 'Unknown';
+        currentChatNumber.textContent = conversation.id;
+        updateUserDetails(conversation);
     } else {
-        // If not found in cache, try to fetch from Firestore
-        db.collection('users').doc(phoneNumber).get()
-            .then(doc => {
-                if (doc.exists) {
-                    const data = doc.data();
-                    updateUIWithConversation({
-                        id: doc.id,
-                        ...data,
-                        lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
-                    });
-                } else {
-                    currentChatName.textContent = phoneNumber;
-                    currentChatNumber.textContent = phoneNumber;
-                    showError('User not found in database');
-                }
-            })
-            .catch(error => {
-                showError('Error fetching user details: ' + error.message);
-            });
+        currentChatName.textContent = phoneNumber;
+        currentChatNumber.textContent = phoneNumber;
     }
     
     // Show message input
@@ -189,51 +142,23 @@ function selectConversation(phoneNumber) {
     messageContainer.innerHTML = '';
     if (unsubscribeMessages) unsubscribeMessages();
     
-    loadMessages(phoneNumber);
-}
-
-function updateUIWithConversation(conversation) {
-    currentChatName.textContent = conversation.profileName || 'Unknown';
-    currentChatNumber.textContent = conversation.id;
-    updateUserDetails(conversation);
-}
-
-function loadMessages(phoneNumber) {
     unsubscribeMessages = db.collection('whatsapp_logs')
         .where('from', '==', phoneNumber)
         .orderBy('timestamp', 'asc')
         .onSnapshot(snapshot => {
-            if (!snapshot) {
-                showError('Invalid snapshot received for messages');
-                return;
-            }
-
             messages[phoneNumber] = [];
             snapshot.forEach(doc => {
-                try {
-                    const data = doc.data();
-                    if (!data) {
-                        showError(`Empty message data for document ${doc.id}`);
-                        return;
-                    }
-                    
-                    messages[phoneNumber].push({
-                        id: doc.id,
-                        ...data,
-                        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
-                    });
-                } catch (error) {
-                    showError(`Error processing message ${doc.id}: ${error.message}`);
-                }
+                const data = doc.data();
+                messages[phoneNumber].push({
+                    id: doc.id,
+                    ...data,
+                    // Convert timestamp to Date
+                    timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+                });
             });
             renderMessages(phoneNumber);
-            
-            // Scroll to bottom
-            setTimeout(() => {
-                messageContainer.scrollTop = messageContainer.scrollHeight;
-            }, 100);
         }, error => {
-            showError('Error loading messages: ' + error.message);
+            console.error('Messages listener error:', error);
         });
 }
 
@@ -263,7 +188,6 @@ function renderConversations() {
     });
 }
 
-// Render messages for a conversation
 function renderMessages(phoneNumber) {
     if (!messages[phoneNumber]?.length) {
         messageContainer.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
@@ -277,7 +201,7 @@ function renderMessages(phoneNumber) {
         const messageTime = formatTime(msg.timestamp);
         let messageContent = '';
 
-        // Handle different message types
+        // Handle known message types
         if (msg.type === 'text') {
             messageContent =
                 msg.text?.body ||
@@ -308,17 +232,11 @@ function renderMessages(phoneNumber) {
         messageContainer.appendChild(messageElement);
     });
 
-    // Scroll to bottom
     messageContainer.scrollTop = messageContainer.scrollHeight;
 }
 
 // Update user details panel
 function updateUserDetails(conversation) {
-    if (!conversation) {
-        userDetailsContent.style.display = 'none';
-        return;
-    }
-
     userDetailsContent.style.display = 'block';
     userName.textContent = conversation.profileName || 'Unknown';
     userPhone.textContent = conversation.id;
@@ -331,11 +249,7 @@ function updateUserDetails(conversation) {
 
 // Transfer to human agent
 function transferToHuman() {
-    if (!selectedConversation) {
-        showError('No conversation selected to transfer');
-        return;
-    }
-    
+    if (!selectedConversation) return;
     alert(`Conversation with ${selectedConversation} transferred to human agent`);
     transferBtn.disabled = true;
     aiBtn.disabled = false;
@@ -343,11 +257,7 @@ function transferToHuman() {
 
 // Switch to AI mode
 function switchToAI() {
-    if (!selectedConversation) {
-        showError('No conversation selected to switch to AI');
-        return;
-    }
-    
+    if (!selectedConversation) return;
     alert(`Conversation with ${selectedConversation} switched to AI mode`);
     transferBtn.disabled = false;
     aiBtn.disabled = true;
@@ -355,12 +265,8 @@ function switchToAI() {
 
 // Save user notes
 function saveUserNotes() {
-    if (!selectedConversation) {
-        showError('No conversation selected to save notes');
-        return;
-    }
-    
-    const notes = userNotes.value.trim();
+    if (!selectedConversation) return;
+    const notes = userNotes.value;
     
     db.collection('users').doc(selectedConversation).update({
         notes: notes,
@@ -368,41 +274,18 @@ function saveUserNotes() {
     }).then(() => {
         alert('Notes saved successfully');
     }).catch(error => {
-        showError('Failed to save notes: ' + error.message);
+        console.error('Error saving notes:', error);
+        alert('Failed to save notes');
     });
 }
 
 // Send message (simulated for UI)
 function sendMessage() {
     const messageText = messageInput.value.trim();
-    if (!messageText) {
-        showError('Message cannot be empty');
-        return;
-    }
-    
-    if (!selectedConversation) {
-        showError('No conversation selected');
-        return;
-    }
+    if (!messageText || !selectedConversation) return;
     
     // In a real implementation, this would send via your webhook
     console.log("Would send message:", messageText);
-    
-    // Add the message to the UI immediately (optimistic update)
-    const newMessage = {
-        direction: 'outgoing',
-        type: 'text',
-        text: { body: messageText },
-        timestamp: new Date()
-    };
-    
-    if (!messages[selectedConversation]) {
-        messages[selectedConversation] = [];
-    }
-    
-    messages[selectedConversation].push(newMessage);
-    renderMessages(selectedConversation);
-    
     messageInput.value = '';
 }
 
@@ -414,7 +297,6 @@ function formatTime(timestamp, fullDate = false) {
 }
 
 function truncate(text, maxLength) {
-    if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
