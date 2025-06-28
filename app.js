@@ -80,7 +80,6 @@ function initApp() {
             currentUser = user;
             authButton.textContent = 'Sign Out';
             
-            // Hide auth container and show app container
             authContainer.style.display = 'none';
             appContainer.style.display = 'flex';
             
@@ -91,7 +90,6 @@ function initApp() {
             currentUser = null;
             authButton.textContent = 'Sign In';
             
-            // Show auth container and hide app container
             authContainer.style.display = 'flex';
             appContainer.style.display = 'none';
             
@@ -100,10 +98,7 @@ function initApp() {
             if (unsubscribeAgents) unsubscribeAgents();
             clearConversations();
             
-            // Initialize FirebaseUI only if container exists
-            if (document.getElementById('firebaseui-auth-container')) {
-                ui.start('#firebaseui-auth-container', uiConfig);
-            }
+            ui.start('#auth-container', uiConfig);
         }
     });
 
@@ -116,7 +111,6 @@ function initApp() {
         }
     });
 
-    // Conversation selection
     conversationList.addEventListener('click', (e) => {
         const conversationItem = e.target.closest('.conversation-item');
         if (conversationItem) {
@@ -125,32 +119,26 @@ function initApp() {
         }
     });
 
-    // Message sending
     sendButton.addEventListener('click', sendMessage);
     messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
 
-    // Transfer/AI buttons
     transferBtn.addEventListener('click', transferToHuman);
     aiBtn.addEventListener('click', switchToAI);
     saveNotes.addEventListener('click', saveUserNotes);
     
-    // Filter and search
     filterBusinessType.addEventListener('change', applyFilters);
     filterStatus.addEventListener('change', applyFilters);
     searchInput.addEventListener('input', applyFilters);
     
-    // Agent selection
     agentSelect.addEventListener('change', updateAgentAssignment);
     
-    // Analytics toggle
     toggleAnalyticsBtn.addEventListener('click', toggleAnalytics);
 }
 
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-    // Listen for conversations
     unsubscribeConversations = db.collection('users')
         .orderBy('lastActive', 'desc')
         .limit(100)
@@ -173,7 +161,6 @@ function setupRealTimeListeners() {
             console.error('Conversations listener error:', error);
         });
         
-    // Listen for agents
     unsubscribeAgents = db.collection('agents')
         .where('active', '==', true)
         .onSnapshot(snapshot => {
@@ -190,7 +177,6 @@ function setupRealTimeListeners() {
 
 // Load analytics data
 function loadAnalyticsData() {
-    // Get messages from last 24 hours
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
@@ -202,7 +188,6 @@ function loadAnalyticsData() {
             renderAnalytics();
         });
     
-    // Calculate average response time (simplified)
     db.collection('response_times')
         .get()
         .then(snapshot => {
@@ -230,7 +215,6 @@ function updateBusinessTypeDistribution() {
 function selectConversation(phoneNumber) {
     selectedConversation = phoneNumber;
     
-    // Update UI
     document.querySelectorAll('.conversation-item').forEach(item => {
         item.classList.toggle('active', item.dataset.phone === phoneNumber);
     });
@@ -241,7 +225,6 @@ function selectConversation(phoneNumber) {
         currentChatNumber.textContent = conversation.id;
         updateUserDetails(conversation);
         
-        // Update agent select
         if (agentSelect.value !== conversation.assignedAgent) {
             agentSelect.value = conversation.assignedAgent || '';
         }
@@ -250,55 +233,85 @@ function selectConversation(phoneNumber) {
         currentChatNumber.textContent = phoneNumber;
     }
     
-    // Show message input
     messageInputContainer.style.display = 'flex';
     [messageInput, sendButton, transferBtn, aiBtn].forEach(el => el.disabled = false);
     
-    // Clear and load messages
     messageContainer.innerHTML = '';
     if (unsubscribeMessages) unsubscribeMessages();
     
-    // Load both incoming and outgoing messages for this conversation
-    unsubscribeMessages = db.collection('whatsapp_logs')
-        .where('from', '==', phoneNumber)
-        .orderBy('timestamp', 'asc')
-        .onSnapshot(snapshot => {
-            messages[phoneNumber] = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                messages[phoneNumber].push({
-                    id: doc.id,
-                    ...data,
-                    timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+    loadMessagesForConversation(phoneNumber);
+}
+
+// Improved message loading with error handling
+async function loadMessagesForConversation(phoneNumber) {
+    try {
+        // First try with indexed query
+        const query = db.collection('whatsapp_logs')
+            .where('from', '==', phoneNumber)
+            .orderBy('timestamp', 'asc');
+        
+        const snapshot = await query.get();
+        
+        messages[phoneNumber] = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            messages[phoneNumber].push({
+                id: doc.id,
+                ...data,
+                direction: 'incoming',
+                timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+            });
+        });
+        
+        // Also load outgoing messages
+        const outgoingSnapshot = await db.collection('whatsapp_logs')
+            .where('to', '==', phoneNumber)
+            .get();
+            
+        outgoingSnapshot.forEach(doc => {
+            const data = doc.data();
+            messages[phoneNumber].push({
+                id: doc.id,
+                ...data,
+                direction: 'outgoing',
+                timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+            });
+        });
+        
+        // Sort all messages by timestamp
+        messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+        renderMessages(phoneNumber);
+        
+        // Set up real-time listener
+        unsubscribeMessages = db.collection('whatsapp_logs')
+            .where('from', '==', phoneNumber)
+            .onSnapshot(snapshot => {
+                snapshot.docChanges().forEach(change => {
+                    if (change.type === 'added') {
+                        const data = change.doc.data();
+                        const newMessage = {
+                            id: change.doc.id,
+                            ...data,
+                            direction: 'incoming',
+                            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+                        };
+                        
+                        if (!messages[phoneNumber].some(msg => msg.id === newMessage.id)) {
+                            messages[phoneNumber].push(newMessage);
+                            messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+                            renderMessages(phoneNumber);
+                        }
+                    }
                 });
             });
             
-            // Also load outgoing messages sent to this number
-            db.collection('whatsapp_logs')
-                .where('to', '==', phoneNumber)
-                .orderBy('timestamp', 'asc')
-                .get()
-                .then(outgoingSnapshot => {
-                    outgoingSnapshot.forEach(doc => {
-                        const data = doc.data();
-                        messages[phoneNumber].push({
-                            id: doc.id,
-                            ...data,
-                            direction: 'outgoing',
-                            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
-                        });
-                    });
-                    
-                    // Sort all messages by timestamp
-                    messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
-                    renderMessages(phoneNumber);
-                });
-        }, error => {
-            console.error('Messages listener error:', error);
-        });
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        messageContainer.innerHTML = '<div class="empty-state"><p>Error loading messages. Please try again.</p></div>';
+    }
 }
 
-// Render conversations list with filters
+// Render conversations list
 function renderConversations() {
     conversationList.innerHTML = conversations.length ? '' : 
         '<div class="empty-state"><p>No conversations found</p></div>';
@@ -351,6 +364,7 @@ function applyFilters() {
     });
 }
 
+// Render messages in the message container
 function renderMessages(phoneNumber) {
     if (!messages[phoneNumber]?.length) {
         messageContainer.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
@@ -365,11 +379,7 @@ function renderMessages(phoneNumber) {
         let messageContent = '';
 
         if (msg.type === 'text') {
-            messageContent =
-                msg.text?.body ||
-                msg.message?.text?.body ||
-                msg.message?.body ||
-                '[Text]';
+            messageContent = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Text]';
         } else if (msg.type === 'interactive') {
             const interactive = msg.interactive || msg.message?.interactive;
             if (interactive?.type === 'button_reply') {
@@ -449,7 +459,6 @@ function updateAgentAssignment() {
 function transferToHuman() {
     if (!selectedConversation) return;
     
-    // Find first available agent
     const availableAgent = agents.find(a => a.status === 'available');
     if (!availableAgent) {
         alert('No available agents at the moment');
@@ -504,12 +513,11 @@ function saveUserNotes() {
     });
 }
 
-// Send message via WhatsApp API
+// Send message
 function sendMessage() {
     const messageText = messageInput.value.trim();
     if (!messageText || !selectedConversation) return;
     
-    // Create a temporary message in UI
     const tempId = 'temp-' + Date.now();
     const tempMessage = {
         id: tempId,
@@ -525,20 +533,15 @@ function sendMessage() {
     messages[selectedConversation].push(tempMessage);
     renderMessages(selectedConversation);
     
-    // Clear input
     messageInput.value = '';
     
-    // In a real implementation, this would send via your WhatsApp API
-    // For now, we'll simulate it
     setTimeout(() => {
-        // Update the message status
         const messageIndex = messages[selectedConversation].findIndex(m => m.id === tempId);
         if (messageIndex !== -1) {
             messages[selectedConversation][messageIndex].status = 'delivered';
             renderMessages(selectedConversation);
         }
         
-        // Add to Firestore (simulated)
         db.collection('whatsapp_logs').add({
             from: currentUser.uid,
             to: selectedConversation,
