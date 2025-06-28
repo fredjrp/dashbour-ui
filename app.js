@@ -15,6 +15,19 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
+// Initialize FirebaseUI
+const uiConfig = {
+  signInSuccessUrl: '/',
+  signInOptions: [
+    firebase.auth.EmailAuthProvider.PROVIDER_ID,
+    firebase.auth.GoogleAuthProvider.PROVIDER_ID
+  ],
+  tosUrl: '/terms-of-service',
+  privacyPolicyUrl: '/privacy-policy',
+  signInFlow: 'popup'
+};
+const ui = new firebaseui.auth.AuthUI(firebase.auth());
+
 // DOM elements
 const conversationList = document.getElementById('conversation-list');
 const messageContainer = document.getElementById('message-container');
@@ -40,6 +53,7 @@ const searchInput = document.getElementById('search-input');
 const agentSelect = document.getElementById('agent-select');
 const analyticsContainer = document.getElementById('analytics-container');
 const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
+const authContainer = document.getElementById('auth-container');
 
 // State variables
 let currentUser = null;
@@ -63,15 +77,19 @@ function initApp() {
         if (user) {
             currentUser = user;
             authButton.textContent = 'Sign Out';
+            authContainer.style.display = 'none';
             setupRealTimeListeners();
             loadAnalyticsData();
         } else {
             currentUser = null;
             authButton.textContent = 'Sign In';
+            authContainer.style.display = 'block';
             if (unsubscribeConversations) unsubscribeConversations();
             if (unsubscribeMessages) unsubscribeMessages();
             if (unsubscribeAgents) unsubscribeAgents();
             clearConversations();
+            // Start FirebaseUI
+            ui.start('#auth-container', uiConfig);
         }
     });
 
@@ -79,11 +97,8 @@ function initApp() {
         if (currentUser) {
             auth.signOut();
         } else {
-            auth.signInWithEmailAndPassword('juniorokovagng@gmail.com', 'mlnkbjvhcgxfzd')
-                .catch(error => {
-                    console.error('Authentication error:', error);
-                    alert('Authentication failed: ' + error.message);
-                });
+            authContainer.style.display = 'block';
+            ui.start('#auth-container', uiConfig);
         }
     });
 
@@ -229,6 +244,7 @@ function selectConversation(phoneNumber) {
     messageContainer.innerHTML = '';
     if (unsubscribeMessages) unsubscribeMessages();
     
+    // Load both incoming and outgoing messages for this conversation
     unsubscribeMessages = db.collection('whatsapp_logs')
         .where('from', '==', phoneNumber)
         .orderBy('timestamp', 'asc')
@@ -242,7 +258,27 @@ function selectConversation(phoneNumber) {
                     timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
                 });
             });
-            renderMessages(phoneNumber);
+            
+            // Also load outgoing messages sent to this number
+            db.collection('whatsapp_logs')
+                .where('to', '==', phoneNumber)
+                .orderBy('timestamp', 'asc')
+                .get()
+                .then(outgoingSnapshot => {
+                    outgoingSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        messages[phoneNumber].push({
+                            id: doc.id,
+                            ...data,
+                            direction: 'outgoing',
+                            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+                        });
+                    });
+                    
+                    // Sort all messages by timestamp
+                    messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+                    renderMessages(phoneNumber);
+                });
         }, error => {
             console.error('Messages listener error:', error);
         });
@@ -490,8 +526,8 @@ function sendMessage() {
         
         // Add to Firestore (simulated)
         db.collection('whatsapp_logs').add({
-            from: selectedConversation,
-            to: currentUser.uid,
+            from: currentUser.uid,
+            to: selectedConversation,
             direction: 'outgoing',
             type: 'text',
             text: { body: messageText },
