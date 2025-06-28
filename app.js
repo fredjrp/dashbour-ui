@@ -54,6 +54,7 @@ const agentSelect = document.getElementById('agent-select');
 const analyticsContainer = document.getElementById('analytics-container');
 const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
 const authContainer = document.getElementById('auth-container');
+const appContainer = document.getElementById('app-container');
 
 // State variables
 let currentUser = null;
@@ -75,21 +76,34 @@ let analyticsData = {
 function initApp() {
     auth.onAuthStateChanged(user => {
         if (user) {
+            console.log('User signed in:', user.email);
             currentUser = user;
             authButton.textContent = 'Sign Out';
+            
+            // Hide auth container and show app container
             authContainer.style.display = 'none';
+            appContainer.style.display = 'flex';
+            
             setupRealTimeListeners();
             loadAnalyticsData();
         } else {
+            console.log('User signed out');
             currentUser = null;
             authButton.textContent = 'Sign In';
-            authContainer.style.display = 'block';
+            
+            // Show auth container and hide app container
+            authContainer.style.display = 'flex';
+            appContainer.style.display = 'none';
+            
             if (unsubscribeConversations) unsubscribeConversations();
             if (unsubscribeMessages) unsubscribeMessages();
             if (unsubscribeAgents) unsubscribeAgents();
             clearConversations();
-            // Start FirebaseUI
-            ui.start('#auth-container', uiConfig);
+            
+            // Initialize FirebaseUI only if container exists
+            if (document.getElementById('firebaseui-auth-container')) {
+                ui.start('#firebaseui-auth-container', uiConfig);
+            }
         }
     });
 
@@ -97,7 +111,7 @@ function initApp() {
         if (currentUser) {
             auth.signOut();
         } else {
-            authContainer.style.display = 'block';
+            authContainer.style.display = 'flex';
             ui.start('#auth-container', uiConfig);
         }
     });
