@@ -14,6 +14,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+const analyticsCharts = {
+    conversationsOverTime: null,
+    statusDistribution: null,
+    businessTypeDistribution: null,
+    responseTimeTrends: null
+};
 
 // Initialize FirebaseUI
 const uiConfig = {
@@ -554,8 +560,275 @@ function sendMessage() {
     }, 1000);
 }
 
+function initializeCharts() {
+    // Destroy existing charts if they exist
+    Object.values(analyticsCharts).forEach(chart => {
+        if (chart) chart.destroy();
+    });
+
+    // Prepare data for charts
+    const statusCounts = {
+        active: 0,
+        assigned: 0,
+        ai: 0,
+        closed: 0
+    };
+
+    const businessTypeCounts = {
+        housing: 0,
+        rental: 0,
+        sale: 0,
+        commercial: 0,
+        unknown: 0
+    };
+
+    conversations.forEach(conv => {
+        // Count statuses
+        statusCounts[conv.status] = (statusCounts[conv.status] || 0) + 1;
+        
+        // Count business types
+        const bizType = conv.lastBusinessType ? 
+            conv.lastBusinessType.replace('biz_', '').toLowerCase() : 'unknown';
+        if (businessTypeCounts.hasOwnProperty(bizType)) {
+            businessTypeCounts[bizType]++;
+        } else {
+            businessTypeCounts.unknown++;
+        }
+    });
+
+    // Calculate response times (sample data - replace with your actual data)
+    const responseTimes = [5, 3, 7, 4, 6, 5, 4]; // Last 7 days
+    
+    // Update metric cards
+    document.getElementById('total-conversations').textContent = conversations.length;
+    document.getElementById('active-conversations').textContent = statusCounts.active;
+    document.getElementById('avg-response-time').textContent = `${Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)} min`;
+    document.getElementById('closed-conversations').textContent = statusCounts.closed;
+
+    // Conversations Over Time Chart (Line Chart)
+    const conversationsCtx = document.getElementById('conversations-chart').getContext('2d');
+    analyticsCharts.conversationsOverTime = new Chart(conversationsCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Conversations',
+                data: [12, 19, 8, 15, 22, 18, 14],
+                backgroundColor: 'rgba(37, 211, 102, 0.2)',
+                borderColor: 'rgba(37, 211, 102, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: getChartOptions('Conversations per day')
+    });
+
+    // Status Distribution Chart (Doughnut)
+    const statusCtx = document.getElementById('status-distribution-chart').getContext('2d');
+    analyticsCharts.statusDistribution = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Active', 'Assigned', 'AI Mode', 'Closed'],
+            datasets: [{
+                data: Object.values(statusCounts),
+                backgroundColor: [
+                    'rgba(76, 175, 80, 0.7)',
+                    'rgba(255, 152, 0, 0.7)',
+                    'rgba(52, 183, 241, 0.7)',
+                    'rgba(158, 158, 158, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(76, 175, 80, 1)',
+                    'rgba(255, 152, 0, 1)',
+                    'rgba(52, 183, 241, 1)',
+                    'rgba(158, 158, 158, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: getChartOptions('Conversation status distribution', true)
+    });
+
+    // Business Type Distribution Chart (Pie)
+    const businessCtx = document.getElementById('business-type-chart').getContext('2d');
+    analyticsCharts.businessTypeDistribution = new Chart(businessCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Housing', 'Rental', 'Sale', 'Commercial', 'Unknown'],
+            datasets: [{
+                data: Object.values(businessTypeCounts),
+                backgroundColor: [
+                    'rgba(18, 140, 126, 0.7)',
+                    'rgba(37, 211, 102, 0.7)',
+                    'rgba(220, 248, 198, 0.7)',
+                    'rgba(52, 183, 241, 0.7)',
+                    'rgba(158, 158, 158, 0.7)'
+                ],
+                borderColor: [
+                    'rgba(18, 140, 126, 1)',
+                    'rgba(37, 211, 102, 1)',
+                    'rgba(220, 248, 198, 1)',
+                    'rgba(52, 183, 241, 1)',
+                    'rgba(158, 158, 158, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: getChartOptions('Business type distribution', true)
+    });
+
+    // Response Time Trends Chart (Line)
+    const responseCtx = document.getElementById('response-time-chart').getContext('2d');
+    analyticsCharts.responseTimeTrends = new Chart(responseCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Avg Response Time (minutes)',
+                data: responseTimes,
+                backgroundColor: 'rgba(52, 183, 241, 0.2)',
+                borderColor: 'rgba(52, 183, 241, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: getChartOptions('Response time trends (minutes)')
+    });
+}
+
+// Helper function for chart options
+function getChartOptions(title, isDoughnut = false) {
+    const baseOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: isDoughnut ? 'right' : 'top',
+                labels: {
+                    color: '#333',
+                    font: {
+                        family: 'Inter',
+                        size: 12
+                    },
+                    usePointStyle: isDoughnut,
+                    padding: isDoughnut ? 20 : 0
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                titleFont: {
+                    family: 'Inter',
+                    size: 14,
+                    weight: 'bold'
+                },
+                bodyFont: {
+                    family: 'Inter',
+                    size: 12
+                },
+                callbacks: {
+                    label: function(context) {
+                        if (isDoughnut) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                        return `${context.dataset.label}: ${context.raw}`;
+                    }
+                }
+            },
+            title: {
+                display: !!title,
+                text: title,
+                font: {
+                    family: 'Inter',
+                    size: 14,
+                    weight: 'bold'
+                },
+                padding: {
+                    top: 10,
+                    bottom: 20
+                }
+            }
+        }
+    };
+
+    if (!isDoughnut) {
+        baseOptions.scales = {
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    color: '#666'
+                }
+            },
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.05)'
+                },
+                ticks: {
+                    color: '#666'
+                }
+            }
+        };
+    }
+
+    return baseOptions;
+}
+
+// Update your toggleAnalytics function to initialize charts when shown
+function toggleAnalytics() {
+    const isVisible = analyticsContainer.style.display === 'grid';
+    analyticsContainer.style.display = isVisible ? 'none' : 'grid';
+    toggleAnalyticsBtn.innerHTML = `<i class="fas fa-chart-line"></i><span>${isVisible ? 'Show' : 'Hide'} Analytics</span>`;
+    
+    if (!isVisible) {
+        renderAnalytics();
+    }
+}
+
+// Update your loadAnalyticsData function to refresh charts when data changes
+function loadAnalyticsData() {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    db.collection('whatsapp_logs')
+        .where('timestamp', '>=', yesterday)
+        .get()
+        .then(snapshot => {
+            analyticsData.messagesToday = snapshot.size;
+            if (analyticsContainer.style.display === 'grid') {
+                renderAnalytics();
+            }
+        });
+    
+    db.collection('response_times')
+        .get()
+        .then(snapshot => {
+            let total = 0;
+            let count = 0;
+            snapshot.forEach(doc => {
+                total += doc.data().time;
+                count++;
+            });
+            analyticsData.avgResponseTime = count > 0 ? Math.round(total / count) : 0;
+            if (analyticsContainer.style.display === 'grid') {
+                renderAnalytics();
+            }
+        });
+}
+
 // Render analytics dashboard
 function renderAnalytics() {
+    // Only initialize charts if analytics container is visible
+    if (analyticsContainer.style.display === 'grid') {
+        initializeCharts();
+    }
     analyticsContainer.innerHTML = `
         <div class="analytics-card">
             <h3>Total Conversations</h3>
