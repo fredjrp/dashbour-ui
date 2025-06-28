@@ -1,4 +1,4 @@
-// Firebase configuration
+// ✅ Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
   authDomain: "housingfreeop.firebaseapp.com",
@@ -10,195 +10,119 @@ const firebaseConfig = {
   measurementId: "G-E6H9E9DLCP"
 };
 
+// ✅ Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
-// Target user
-const targetPhoneNumber = "254703738935";
-
-// DOM Elements
+// ✅ DOM References
 const conversationList = document.getElementById('conversation-list');
 const messageContainer = document.getElementById('message-container');
+const currentChatName = document.getElementById('current-chat-name');
+const currentChatNumber = document.getElementById('current-chat-number');
 const messageInput = document.getElementById('message-input');
 const sendButton = document.getElementById('send-button');
 const messageInputContainer = document.getElementById('message-input-container');
-const currentChatName = document.getElementById('current-chat-name');
-const currentChatNumber = document.getElementById('current-chat-number');
-const transferBtn = document.getElementById('transfer-btn');
-const aiBtn = document.getElementById('ai-btn');
-const userDetailsContent = document.getElementById('user-details-content');
-const userName = document.getElementById('user-name');
-const userPhone = document.getElementById('user-phone');
-const lastActive = document.getElementById('last-active');
-const businessType = document.getElementById('business-type');
-const userStatus = document.getElementById('user-status');
-const userNotes = document.getElementById('user-notes');
-const saveNotes = document.getElementById('save-notes');
 
-let messages = {};
-let unsubscribeMessages = null;
+// ✅ Static user for now
+const selectedPhoneNumber = "254703738935";
 
-// App Init
-function initApp() {
-  loadOrCreateUser();
-  sendButton.addEventListener('click', sendMessage);
-  messageInput.addEventListener('keypress', e => {
-    if (e.key === 'Enter') sendMessage();
-  });
-  transferBtn.addEventListener('click', transferToHuman);
-  aiBtn.addEventListener('click', switchToAI);
-  saveNotes.addEventListener('click', saveUserNotes);
-}
+// ✅ Auto Load on DOM Ready
+document.addEventListener("DOMContentLoaded", () => {
+  loadUserConversation(selectedPhoneNumber);
+});
 
-// Load user or create if not exists
-function loadOrCreateUser() {
-  const userRef = db.collection('users').doc(targetPhoneNumber);
-  userRef.get().then(doc => {
-    if (!doc.exists) {
-      return userRef.set({
-        profileName: "Fred Auto",
-        lastActive: firebase.firestore.FieldValue.serverTimestamp(),
-        status: "active",
-        notes: "",
-        lastMessage: "This is a test message"
-      }).then(() => userRef.get());
-    } else {
-      return doc;
-    }
-  }).then(doc => {
-    const data = doc.data();
-    const conversation = {
-      id: doc.id,
-      ...data,
-      lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date()
-    };
-    renderSingleConversation(conversation);
-    selectConversation(conversation);
-  }).catch(error => {
-    console.error("Error loading or creating user:", error);
-    conversationList.innerHTML = "<p>⚠️ Failed to load user</p>";
-  });
-}
+// ✅ Load Specific User Conversation
+function loadUserConversation(phone) {
+  console.log("📥 Fetching user:", phone);
 
-function renderSingleConversation(convo) {
-  const item = document.createElement('div');
-  item.className = 'conversation-item active';
-  item.dataset.phone = convo.id;
-  item.innerHTML = `
-    <div class="conversation-avatar">${(convo.profileName || '?')[0].toUpperCase()}</div>
-    <div class="conversation-info">
-      <div class="conversation-name">${convo.profileName || convo.id}</div>
-      <div class="conversation-preview">${truncate(convo.lastMessage || '', 30)}</div>
-    </div>
-    <div class="conversation-time">${formatTime(convo.lastActive)}</div>
-  `;
-  conversationList.innerHTML = "";
-  conversationList.appendChild(item);
-}
+  db.collection('users').doc(phone).get()
+    .then(doc => {
+      if (!doc.exists) {
+        conversationList.innerHTML = `<p>User ${phone} not found.</p>`;
+        return;
+      }
 
-function selectConversation(convo) {
-  currentChatName.textContent = convo.profileName || "User";
-  currentChatNumber.textContent = convo.id;
-  updateUserDetails(convo);
+      const userData = doc.data();
+      console.log("✅ User found:", userData);
 
-  messageInputContainer.style.display = 'flex';
-  [messageInput, sendButton, transferBtn, aiBtn].forEach(el => el.disabled = false);
+      currentChatName.textContent = userData.profileName || "Unknown User";
+      currentChatNumber.textContent = phone;
 
-  if (unsubscribeMessages) unsubscribeMessages();
-  unsubscribeMessages = db.collection('whatsapp_logs')
-    .where('from', '==', convo.id)
-    .orderBy('timestamp', 'asc')
-    .onSnapshot(snapshot => {
-      messages[convo.id] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        messages[convo.id].push({
-          id: doc.id,
-          ...data,
-          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date()
-        });
-      });
-      renderMessages(convo.id);
+      conversationList.innerHTML = `
+        <div class="conversation-item active">
+          <div class="conversation-avatar">${(userData.profileName || "?").charAt(0)}</div>
+          <div class="conversation-info">
+            <div class="conversation-name">${userData.profileName || phone}</div>
+            <div class="conversation-preview">${userData.lastMessage || "No preview"}</div>
+          </div>
+        </div>
+      `;
+
+      messageInputContainer.style.display = 'flex';
+      messageInput.disabled = false;
+      sendButton.disabled = false;
+
+      subscribeToMessages(phone);
+    })
+    .catch(error => {
+      console.error("❌ Error fetching user:", error);
+      conversationList.innerHTML = `<p>Error loading user.</p>`;
     });
 }
 
-function renderMessages(phoneNumber) {
-  const list = messages[phoneNumber];
-  if (!list?.length) {
-    messageContainer.innerHTML = '<div class="empty-state"><p>No messages found</p></div>';
-    return;
-  }
+// ✅ Subscribe to Messages in Real-Time
+function subscribeToMessages(phone) {
+  console.log("📨 Subscribing to messages for:", phone);
 
-  messageContainer.innerHTML = '';
-  list.forEach(msg => {
-    const isOut = msg.direction === 'outgoing';
-    const time = formatTime(msg.timestamp);
-    let content = '[Unknown]';
+  db.collection('whatsapp_logs')
+    .where('from', '==', phone)
+    .orderBy('timestamp')
+    .onSnapshot(snapshot => {
+      if (snapshot.empty) {
+        messageContainer.innerHTML = `<p>No messages yet for ${phone}</p>`;
+        return;
+      }
 
-    if (msg.type === 'text') {
-      content = msg.text?.body || msg.message?.text?.body || '[Text]';
-    } else if (msg.type === 'interactive') {
-      const i = msg.interactive || msg.message?.interactive;
-      content = `[${i?.type}] ${JSON.stringify(i).slice(0, 50)}...`;
-    }
+      messageContainer.innerHTML = "";
 
-    const div = document.createElement('div');
-    div.className = `message ${isOut ? 'message-outgoing' : 'message-incoming'}`;
-    div.innerHTML = `<div class="message-content">${content}</div><div class="message-time">${time}</div>`;
-    messageContainer.appendChild(div);
-  });
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        const isOutgoing = msg.direction === 'outgoing';
+        const time = formatTime(msg.timestamp?.toDate?.() || new Date());
 
-  messageContainer.scrollTop = messageContainer.scrollHeight;
+        let content = '[Message]';
+        if (msg.type === 'text') {
+          content = msg.text?.body || msg.message?.text?.body || '[Empty text]';
+        } else if (msg.type === 'interactive') {
+          content = `[Interactive] ${JSON.stringify(msg.interactive || msg.message?.interactive || {})}`;
+        }
+
+        const div = document.createElement('div');
+        div.className = `message ${isOutgoing ? 'message-outgoing' : 'message-incoming'}`;
+        div.innerHTML = `
+          <div class="message-content">${content}</div>
+          <div class="message-time">${time}</div>
+        `;
+        messageContainer.appendChild(div);
+      });
+
+      messageContainer.scrollTop = messageContainer.scrollHeight;
+    }, error => {
+      console.error("❌ Error loading messages:", error);
+      messageContainer.innerHTML = `<p>Error loading messages</p>`;
+    });
 }
 
-function updateUserDetails(c) {
-  userDetailsContent.style.display = 'block';
-  userName.textContent = c.profileName || 'User';
-  userPhone.textContent = c.id;
-  lastActive.textContent = formatTime(c.lastActive, true);
-  businessType.textContent = c.lastBusinessType || 'Not specified';
-  userStatus.textContent = c.status || 'active';
-  userNotes.value = c.notes || '';
-}
+// ✅ Optional: Send Message Stub (UI only)
+sendButton.addEventListener('click', () => {
+  const messageText = messageInput.value.trim();
+  if (!messageText) return;
 
-function sendMessage() {
-  const text = messageInput.value.trim();
-  if (!text) return;
-  console.log("Would send:", text);
+  console.log("📤 Simulated send:", messageText);
   messageInput.value = '';
-}
+});
 
-function transferToHuman() {
-  alert("Transferred to human");
-  transferBtn.disabled = true;
-  aiBtn.disabled = false;
+function formatTime(date) {
+  return new Date(date).toLocaleTimeString();
 }
-
-function switchToAI() {
-  alert("Switched to AI");
-  aiBtn.disabled = true;
-  transferBtn.disabled = false;
-}
-
-function saveUserNotes() {
-  const notes = userNotes.value;
-  db.collection('users').doc(targetPhoneNumber).update({
-    notes,
-    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(() => {
-    alert("✅ Notes saved");
-  }).catch(err => {
-    alert("❌ Failed to save notes");
-  });
-}
-
-function formatTime(date, full = false) {
-  const d = date instanceof Date ? date : new Date(date);
-  return full ? d.toLocaleString() : d.toLocaleTimeString();
-}
-
-function truncate(text, max) {
-  return text.length > max ? text.slice(0, max) + "..." : text;
-}
-
-document.addEventListener('DOMContentLoaded', initApp);
