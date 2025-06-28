@@ -34,14 +34,28 @@ const businessType = document.getElementById('business-type');
 const userStatus = document.getElementById('user-status');
 const userNotes = document.getElementById('user-notes');
 const saveNotes = document.getElementById('save-notes');
+const filterBusinessType = document.getElementById('filter-business-type');
+const filterStatus = document.getElementById('filter-status');
+const searchInput = document.getElementById('search-input');
+const agentSelect = document.getElementById('agent-select');
+const analyticsContainer = document.getElementById('analytics-container');
+const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
 
 // State variables
 let currentUser = null;
 let selectedConversation = null;
 let conversations = [];
 let messages = {};
+let agents = [];
 let unsubscribeConversations = null;
 let unsubscribeMessages = null;
+let unsubscribeAgents = null;
+let analyticsData = {
+  totalConversations: 0,
+  messagesToday: 0,
+  avgResponseTime: 0,
+  businessTypeDistribution: {}
+};
 
 // Initialize the app
 function initApp() {
@@ -50,11 +64,13 @@ function initApp() {
             currentUser = user;
             authButton.textContent = 'Sign Out';
             setupRealTimeListeners();
+            loadAnalyticsData();
         } else {
             currentUser = null;
             authButton.textContent = 'Sign In';
             if (unsubscribeConversations) unsubscribeConversations();
             if (unsubscribeMessages) unsubscribeMessages();
+            if (unsubscribeAgents) unsubscribeAgents();
             clearConversations();
         }
     });
@@ -90,6 +106,17 @@ function initApp() {
     transferBtn.addEventListener('click', transferToHuman);
     aiBtn.addEventListener('click', switchToAI);
     saveNotes.addEventListener('click', saveUserNotes);
+    
+    // Filter and search
+    filterBusinessType.addEventListener('change', applyFilters);
+    filterStatus.addEventListener('change', applyFilters);
+    searchInput.addEventListener('input', applyFilters);
+    
+    // Agent selection
+    agentSelect.addEventListener('change', updateAgentAssignment);
+    
+    // Analytics toggle
+    toggleAnalyticsBtn.addEventListener('click', toggleAnalytics);
 }
 
 // Set up real-time Firestore listeners
@@ -97,7 +124,7 @@ function setupRealTimeListeners() {
     // Listen for conversations
     unsubscribeConversations = db.collection('users')
         .orderBy('lastActive', 'desc')
-        .limit(50)
+        .limit(100)
         .onSnapshot(snapshot => {
             conversations = [];
             snapshot.forEach(doc => {
@@ -105,14 +132,69 @@ function setupRealTimeListeners() {
                 conversations.push({
                     id: doc.id,
                     ...data,
-                    // Convert lastActive to Date if it's a timestamp
-                    lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now())
+                    lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now()),
+                    assignedAgent: data.assignedAgent || null,
+                    status: data.status || 'active'
                 });
             });
+            analyticsData.totalConversations = conversations.length;
+            updateBusinessTypeDistribution();
             renderConversations();
         }, error => {
             console.error('Conversations listener error:', error);
         });
+        
+    // Listen for agents
+    unsubscribeAgents = db.collection('agents')
+        .where('active', '==', true)
+        .onSnapshot(snapshot => {
+            agents = [];
+            snapshot.forEach(doc => {
+                agents.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            renderAgentSelect();
+        });
+}
+
+// Load analytics data
+function loadAnalyticsData() {
+    // Get messages from last 24 hours
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    db.collection('whatsapp_logs')
+        .where('timestamp', '>=', yesterday)
+        .get()
+        .then(snapshot => {
+            analyticsData.messagesToday = snapshot.size;
+            renderAnalytics();
+        });
+    
+    // Calculate average response time (simplified)
+    db.collection('response_times')
+        .get()
+        .then(snapshot => {
+            let total = 0;
+            let count = 0;
+            snapshot.forEach(doc => {
+                total += doc.data().time;
+                count++;
+            });
+            analyticsData.avgResponseTime = count > 0 ? Math.round(total / count) : 0;
+            renderAnalytics();
+        });
+}
+
+function updateBusinessTypeDistribution() {
+    analyticsData.businessTypeDistribution = {};
+    conversations.forEach(conv => {
+        const type = conv.lastBusinessType || 'unknown';
+        analyticsData.businessTypeDistribution[type] = (analyticsData.businessTypeDistribution[type] || 0) + 1;
+    });
+    renderAnalytics();
 }
 
 // Select conversation and load messages
@@ -129,6 +211,11 @@ function selectConversation(phoneNumber) {
         currentChatName.textContent = conversation.profileName || 'Unknown';
         currentChatNumber.textContent = conversation.id;
         updateUserDetails(conversation);
+        
+        // Update agent select
+        if (agentSelect.value !== conversation.assignedAgent) {
+            agentSelect.value = conversation.assignedAgent || '';
+        }
     } else {
         currentChatName.textContent = phoneNumber;
         currentChatNumber.textContent = phoneNumber;
@@ -152,7 +239,6 @@ function selectConversation(phoneNumber) {
                 messages[phoneNumber].push({
                     id: doc.id,
                     ...data,
-                    // Convert timestamp to Date
                     timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
                 });
             });
@@ -162,14 +248,18 @@ function selectConversation(phoneNumber) {
         });
 }
 
-// Render conversations list
+// Render conversations list with filters
 function renderConversations() {
     conversationList.innerHTML = conversations.length ? '' : 
         '<div class="empty-state"><p>No conversations found</p></div>';
     
-    conversations.forEach(conversation => {
+    const filteredConversations = applyFilters();
+    
+    filteredConversations.forEach(conversation => {
         const lastMessage = conversation.lastMessage || 'No messages yet';
         const lastActiveTime = formatTime(conversation.lastActive);
+        const agent = conversation.assignedAgent ? 
+            agents.find(a => a.id === conversation.assignedAgent) : null;
         
         const conversationItem = document.createElement('div');
         conversationItem.className = `conversation-item ${selectedConversation === conversation.id ? 'active' : ''}`;
@@ -181,10 +271,33 @@ function renderConversations() {
             <div class="conversation-info">
                 <div class="conversation-name">${conversation.profileName || conversation.id}</div>
                 <div class="conversation-preview">${truncate(lastMessage, 30)}</div>
+                ${agent ? `<div class="conversation-agent">Agent: ${agent.name}</div>` : ''}
             </div>
-            <div class="conversation-time">${lastActiveTime}</div>
+            <div class="conversation-meta">
+                <div class="conversation-time">${lastActiveTime}</div>
+                <div class="conversation-status ${conversation.status}">${conversation.status}</div>
+            </div>
         `;
         conversationList.appendChild(conversationItem);
+    });
+}
+
+function applyFilters() {
+    const businessTypeFilter = filterBusinessType.value;
+    const statusFilter = filterStatus.value;
+    const searchTerm = searchInput.value.toLowerCase();
+    
+    return conversations.filter(conversation => {
+        const matchesBusinessType = !businessTypeFilter || 
+            (conversation.lastBusinessType || '').includes(businessTypeFilter);
+        const matchesStatus = !statusFilter || 
+            (conversation.status || 'active') === statusFilter;
+        const matchesSearch = !searchTerm || 
+            (conversation.profileName || '').toLowerCase().includes(searchTerm) ||
+            conversation.id.includes(searchTerm) ||
+            (conversation.lastMessage || '').toLowerCase().includes(searchTerm);
+            
+        return matchesBusinessType && matchesStatus && matchesSearch;
     });
 }
 
@@ -201,7 +314,6 @@ function renderMessages(phoneNumber) {
         const messageTime = formatTime(msg.timestamp);
         let messageContent = '';
 
-        // Handle known message types
         if (msg.type === 'text') {
             messageContent =
                 msg.text?.body ||
@@ -228,6 +340,7 @@ function renderMessages(phoneNumber) {
         messageElement.innerHTML = `
             <div class="message-content">${messageContent}</div>
             <div class="message-time">${messageTime}</div>
+            ${isOutgoing ? `<div class="message-status">${msg.status || 'sent'}</div>` : ''}
         `;
         messageContainer.appendChild(messageElement);
     });
@@ -247,20 +360,82 @@ function updateUserDetails(conversation) {
     userNotes.value = conversation.notes || '';
 }
 
+// Render agent select dropdown
+function renderAgentSelect() {
+    agentSelect.innerHTML = '<option value="">Unassigned</option>';
+    agents.forEach(agent => {
+        const option = document.createElement('option');
+        option.value = agent.id;
+        option.textContent = `${agent.name} (${agent.status || 'available'})`;
+        option.disabled = agent.status !== 'available';
+        agentSelect.appendChild(option);
+    });
+    
+    if (selectedConversation) {
+        const conversation = conversations.find(c => c.id === selectedConversation);
+        if (conversation) {
+            agentSelect.value = conversation.assignedAgent || '';
+        }
+    }
+}
+
+// Update agent assignment
+function updateAgentAssignment() {
+    if (!selectedConversation) return;
+    
+    const agentId = agentSelect.value;
+    db.collection('users').doc(selectedConversation).update({
+        assignedAgent: agentId || null,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        console.log('Agent assignment updated');
+    }).catch(error => {
+        console.error('Error updating agent assignment:', error);
+        alert('Failed to update agent assignment');
+    });
+}
+
 // Transfer to human agent
 function transferToHuman() {
     if (!selectedConversation) return;
-    alert(`Conversation with ${selectedConversation} transferred to human agent`);
-    transferBtn.disabled = true;
-    aiBtn.disabled = false;
+    
+    // Find first available agent
+    const availableAgent = agents.find(a => a.status === 'available');
+    if (!availableAgent) {
+        alert('No available agents at the moment');
+        return;
+    }
+    
+    db.collection('users').doc(selectedConversation).update({
+        assignedAgent: availableAgent.id,
+        status: 'assigned',
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        alert(`Conversation assigned to ${availableAgent.name}`);
+        transferBtn.disabled = true;
+        aiBtn.disabled = false;
+    }).catch(error => {
+        console.error('Transfer error:', error);
+        alert('Transfer failed: ' + error.message);
+    });
 }
 
 // Switch to AI mode
 function switchToAI() {
     if (!selectedConversation) return;
-    alert(`Conversation with ${selectedConversation} switched to AI mode`);
-    transferBtn.disabled = false;
-    aiBtn.disabled = true;
+    
+    db.collection('users').doc(selectedConversation).update({
+        assignedAgent: null,
+        status: 'ai',
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(() => {
+        alert('Conversation switched to AI mode');
+        transferBtn.disabled = false;
+        aiBtn.disabled = true;
+    }).catch(error => {
+        console.error('AI switch error:', error);
+        alert('Failed to switch to AI mode');
+    });
 }
 
 // Save user notes
@@ -272,31 +447,104 @@ function saveUserNotes() {
         notes: notes,
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }).then(() => {
-        alert('Notes saved successfully');
+        console.log('Notes saved successfully');
     }).catch(error => {
         console.error('Error saving notes:', error);
         alert('Failed to save notes');
     });
 }
 
-// Send message (simulated for UI)
+// Send message via WhatsApp API
 function sendMessage() {
     const messageText = messageInput.value.trim();
     if (!messageText || !selectedConversation) return;
     
-    // In a real implementation, this would send via your webhook
-    console.log("Would send message:", messageText);
+    // Create a temporary message in UI
+    const tempId = 'temp-' + Date.now();
+    const tempMessage = {
+        id: tempId,
+        from: selectedConversation,
+        direction: 'outgoing',
+        type: 'text',
+        text: { body: messageText },
+        timestamp: new Date(),
+        status: 'sending'
+    };
+    
+    if (!messages[selectedConversation]) messages[selectedConversation] = [];
+    messages[selectedConversation].push(tempMessage);
+    renderMessages(selectedConversation);
+    
+    // Clear input
     messageInput.value = '';
+    
+    // In a real implementation, this would send via your WhatsApp API
+    // For now, we'll simulate it
+    setTimeout(() => {
+        // Update the message status
+        const messageIndex = messages[selectedConversation].findIndex(m => m.id === tempId);
+        if (messageIndex !== -1) {
+            messages[selectedConversation][messageIndex].status = 'delivered';
+            renderMessages(selectedConversation);
+        }
+        
+        // Add to Firestore (simulated)
+        db.collection('whatsapp_logs').add({
+            from: selectedConversation,
+            to: currentUser.uid,
+            direction: 'outgoing',
+            type: 'text',
+            text: { body: messageText },
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            status: 'delivered'
+        });
+    }, 1000);
+}
+
+// Render analytics dashboard
+function renderAnalytics() {
+    analyticsContainer.innerHTML = `
+        <div class="analytics-card">
+            <h3>Total Conversations</h3>
+            <div class="analytics-value">${analyticsData.totalConversations}</div>
+        </div>
+        <div class="analytics-card">
+            <h3>Messages Today</h3>
+            <div class="analytics-value">${analyticsData.messagesToday}</div>
+        </div>
+        <div class="analytics-card">
+            <h3>Avg Response Time</h3>
+            <div class="analytics-value">${analyticsData.avgResponseTime}s</div>
+        </div>
+        <div class="analytics-card wide">
+            <h3>Business Type Distribution</h3>
+            <div class="business-distribution">
+                ${Object.entries(analyticsData.businessTypeDistribution).map(([type, count]) => `
+                    <div class="business-type">
+                        <div class="business-type-label">${type.replace('biz_', '').replace('_', ' ')}</div>
+                        <div class="business-type-bar" style="width: ${(count / analyticsData.totalConversations) * 100}%"></div>
+                        <div class="business-type-count">${count}</div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function toggleAnalytics() {
+    analyticsContainer.style.display = analyticsContainer.style.display === 'none' ? 'grid' : 'none';
+    toggleAnalyticsBtn.textContent = analyticsContainer.style.display === 'none' ? 'Show Analytics' : 'Hide Analytics';
 }
 
 // Helper functions
 function formatTime(timestamp, fullDate = false) {
     if (!timestamp) return 'Unknown';
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-    return fullDate ? date.toLocaleString() : date.toLocaleTimeString();
+    return fullDate ? date.toLocaleString() : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function truncate(text, maxLength) {
+    if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
@@ -309,6 +557,7 @@ function clearConversations() {
     messageInputContainer.style.display = 'none';
     transferBtn.disabled = true;
     aiBtn.disabled = true;
+    agentSelect.innerHTML = '<option value="">No agents available</option>';
 }
 
 // Initialize the app
