@@ -158,40 +158,59 @@
     <script src="app.js"></script>
     
     <!-- Initialization Check -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM fully loaded');
+     <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM fully loaded');
+        
+        // Required elements
+        const requiredElements = {
+            authContainer: document.getElementById('auth-container'),
+            appContainer: document.getElementById('app-container'),
+            firebaseAuthContainer: document.getElementById('firebaseui-auth-container'),
+            errorContainer: document.getElementById('error-container')
+        };
+        
+        // Verify all elements exist
+        let missingElements = [];
+        for (const [name, element] of Object.entries(requiredElements)) {
+            if (!element && name !== 'firebaseAuthContainer') {
+                console.error('Missing element:', name);
+                missingElements.push(name);
+            }
+        }
+        
+        if (missingElements.length > 0) {
+            const errorMsg = `Missing required elements: ${missingElements.join(', ')}`;
+            console.error(errorMsg);
             
-            // Check for critical elements
-            const checkElements = [
-                'auth-container', 'app-container', 'conversation-list', 
-                'message-container', 'firebaseui-auth-container'
-            ];
-            
-            let allElementsExist = true;
-            checkElements.forEach(id => {
-                if (!document.getElementById(id) && id !== 'firebaseui-auth-container') {
-                    console.error('Missing element:', id);
-                    allElementsExist = false;
-                }
-            });
-            
-            if (!allElementsExist) {
-                document.getElementById('error-container').style.display = 'block';
-                document.getElementById('error-container').innerHTML = `
+            if (requiredElements.errorContainer) {
+                requiredElements.errorContainer.style.display = 'block';
+                requiredElements.errorContainer.innerHTML = `
                     <h3>Application Error</h3>
-                    <p>Critical elements missing. Check console for details.</p>
+                    <p>${errorMsg}</p>
+                    <p>Please check your HTML structure.</p>
                 `;
             }
+            return;
+        }
+        
+        // Check Firebase availability
+        if (typeof firebase === 'undefined') {
+            const errorMsg = 'Firebase SDK failed to load';
+            console.error(errorMsg);
             
-            // Check Firebase availability
-            if (typeof firebase === 'undefined') {
-                document.getElementById('error-container').style.display = 'block';
-                document.getElementById('error-container').innerHTML += `
-                    <p>Firebase SDK failed to load. Please check your internet connection.</p>
+            if (requiredElements.errorContainer) {
+                requiredElements.errorContainer.style.display = 'block';
+                requiredElements.errorContainer.innerHTML += `
+                    <p>${errorMsg}. Please check your internet connection.</p>
                 `;
             }
-        });
-    </script>
+            return;
+        }
+        
+        // If all checks pass, initialize the app
+        console.log('All required elements and libraries loaded');
+    });
+</script>
 </body>
 </html>
