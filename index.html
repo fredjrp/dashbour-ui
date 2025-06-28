@@ -16,20 +16,18 @@
 </head>
 <body>
     <!-- Auth Container (shown when not logged in) -->
-    <div id="auth-container" class="auth-container" style="display: none;">
-        <div class="auth-overlay">
-            <div class="auth-modal">
-                <div id="firebaseui-auth-container"></div>
-                <div class="auth-branding">
-                    <img src="https://via.placeholder.com/80" alt="Logo" class="auth-logo">
-                    <h2>WhatsApp CRM Dashboard</h2>
-                    <p>Sign in to access your conversations</p>
-                </div>
+    <div id="auth-container" class="auth-container">
+        <div class="auth-modal">
+            <div class="auth-branding">
+                <img src="https://via.placeholder.com/80" alt="Logo" class="auth-logo">
+                <h2>WhatsApp CRM Dashboard</h2>
+                <p>Sign in to access your conversations</p>
             </div>
+            <div id="firebaseui-auth-container"></div>
         </div>
     </div>
 
-    <!-- Main App Container (shown when logged in) -->
+    <!-- Main App Container (hidden initially) -->
     <div class="app-container" style="display: none;">
         <header class="app-header">
             <div class="header-left">
@@ -47,9 +45,7 @@
         </header>
 
         <!-- Analytics Dashboard -->
-        <div id="analytics-container" class="analytics-container" style="display: none;">
-            <!-- Analytics cards will be loaded here -->
-        </div>
+        <div id="analytics-container" class="analytics-container" style="display: none;"></div>
 
         <div class="main-content">
             <aside class="sidebar">
@@ -78,7 +74,7 @@
                 <div class="conversation-list" id="conversation-list">
                     <div class="empty-state">
                         <i class="fas fa-comments"></i>
-                        <p>Sign in to view conversations</p>
+                        <p>Loading conversations...</p>
                     </div>
                 </div>
             </aside>
@@ -156,6 +152,46 @@
         </div>
     </div>
 
+    <!-- Error Display Container -->
+    <div id="error-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; padding: 20px; background: #ffebee; color: #c62828; z-index: 10000;"></div>
+
     <script src="app.js"></script>
+    
+    <!-- Initialization Check -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded');
+            
+            // Check for critical elements
+            const checkElements = [
+                'auth-container', 'app-container', 'conversation-list', 
+                'message-container', 'firebaseui-auth-container'
+            ];
+            
+            let allElementsExist = true;
+            checkElements.forEach(id => {
+                if (!document.getElementById(id) && id !== 'firebaseui-auth-container') {
+                    console.error('Missing element:', id);
+                    allElementsExist = false;
+                }
+            });
+            
+            if (!allElementsExist) {
+                document.getElementById('error-container').style.display = 'block';
+                document.getElementById('error-container').innerHTML = `
+                    <h3>Application Error</h3>
+                    <p>Critical elements missing. Check console for details.</p>
+                `;
+            }
+            
+            // Check Firebase availability
+            if (typeof firebase === 'undefined') {
+                document.getElementById('error-container').style.display = 'block';
+                document.getElementById('error-container').innerHTML += `
+                    <p>Firebase SDK failed to load. Please check your internet connection.</p>
+                `;
+            }
+        });
+    </script>
 </body>
 </html>
