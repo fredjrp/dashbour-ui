@@ -3,39 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fred's Inc - WhatsApp Bot Monitor</title>
+    <title>Fred's Inc - WhatsApp CRM Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.js"></script>
 </head>
 <body>
-    <div class="app-container">
+    <!-- Auth Container (shown when not logged in) -->
+    <div id="auth-container" class="auth-container" style="display: none;">
+        <div class="auth-overlay">
+            <div class="auth-modal">
+                <div id="firebaseui-auth-container"></div>
+                <div class="auth-branding">
+                    <img src="https://via.placeholder.com/80" alt="Logo" class="auth-logo">
+                    <h2>WhatsApp CRM Dashboard</h2>
+                    <p>Sign in to access your conversations</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container (shown when logged in) -->
+    <div class="app-container" style="display: none;">
         <header class="app-header">
             <div class="header-left">
                 <img src="https://via.placeholder.com/40" alt="Logo" class="logo">
-                <h1>WhatsApp Bot Monitor</h1>
+                <h1>WhatsApp CRM Dashboard</h1>
             </div>
             <div class="header-right">
+                <button id="toggle-analytics-btn" class="analytics-toggle">Show Analytics</button>
                 <div class="status-indicator">
                     <span class="status-dot active"></span>
                     <span>Connected</span>
                 </div>
-                <button id="auth-button" class="auth-button">Sign In</button>
+                <button id="auth-button" class="auth-button">Sign Out</button>
             </div>
         </header>
 
+        <!-- Analytics Dashboard -->
+        <div id="analytics-container" class="analytics-container" style="display: none;">
+            <!-- Analytics cards will be loaded here -->
+        </div>
+
         <div class="main-content">
             <aside class="sidebar">
-                <div class="search-container">
-                    <input type="text" placeholder="Search conversations..." class="search-input">
-                    <i class="fas fa-search search-icon"></i>
+                <div class="sidebar-toolbar">
+                    <div class="search-container">
+                        <input type="text" id="search-input" placeholder="Search conversations..." class="search-input">
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                    <div class="filters-container">
+                        <select id="filter-business-type" class="filter-select">
+                            <option value="">All Business Types</option>
+                            <option value="biz_housing">Housing</option>
+                            <option value="biz_rental">Rental</option>
+                            <option value="biz_sale">Sale</option>
+                            <option value="biz_commercial">Commercial</option>
+                        </select>
+                        <select id="filter-status" class="filter-select">
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="ai">AI Mode</option>
+                            <option value="closed">Closed</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="conversation-list" id="conversation-list">
-                    <!-- Conversations will be loaded here -->
+                    <div class="empty-state">
+                        <i class="fas fa-comments"></i>
+                        <p>Sign in to view conversations</p>
+                    </div>
                 </div>
             </aside>
 
@@ -46,8 +90,11 @@
                         <p id="current-chat-number"></p>
                     </div>
                     <div class="chat-actions">
+                        <select id="agent-select" class="agent-select" disabled>
+                            <option value="">No agents available</option>
+                        </select>
                         <button id="transfer-btn" class="action-button" disabled>
-                            <i class="fas fa-user-plus"></i> Transfer to Human
+                            <i class="fas fa-user-plus"></i> Transfer
                         </button>
                         <button id="ai-btn" class="action-button" disabled>
                             <i class="fas fa-robot"></i> AI Mode
@@ -78,7 +125,7 @@
                     </div>
                     <div id="user-details-content" style="display: none;">
                         <div class="user-avatar">
-                            <img src="https://via.placeholder.com/80" alt="User" id="user-avatar">
+                            <div class="avatar-initials" id="avatar-initials">?</div>
                         </div>
                         <h3 id="user-name">User Name</h3>
                         <p id="user-phone">+254 700 000 000</p>
@@ -101,7 +148,7 @@
                         <div class="user-notes">
                             <h4>Notes</h4>
                             <textarea id="user-notes" placeholder="Add notes about this user..."></textarea>
-                            <button id="save-notes">Save Notes</button>
+                            <button id="save-notes" class="save-button">Save Notes</button>
                         </div>
                     </div>
                 </div>
