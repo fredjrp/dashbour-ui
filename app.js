@@ -81,7 +81,7 @@ let analyticsData = {
 // Agent Control Functions
 async function assignToAgent(phoneNumber, agentId) {
   try {
-    const response = await fetch('https://https://aisassistantdvdhs.onrender.com/agent-webhook', {
+    const response = await fetch('https://aisassistantdvdhs.onrender.com/agent-webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'assign', phoneNumber, agentId }),
@@ -469,44 +469,14 @@ function renderMessages(phoneNumber) {
       if (msg.type === 'text') {
           messageContent = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Text]';
       } else if (msg.type === 'interactive') {
-    const interactive = msg.interactive || msg.message?.interactive;
-    const type = interactive?.type;
-
-    if (type === 'button_reply') {
-        messageContent = `
-            <strong>Button Reply:</strong><br>
-            <span>${interactive.button_reply?.title || interactive.button_reply?.id}</span>
-        `;
-    } else if (type === 'list_reply') {
-        messageContent = `
-            <strong>List Reply:</strong><br>
-            <span>${interactive.list_reply?.title || interactive.list_reply?.id}</span>
-        `;
-    } else if (type === 'button') {
-        const buttons = interactive.body?.text + '<br>' + (interactive.action?.buttons || []).map(btn => `
-            <button class="interactive-btn">${btn?.reply?.title || btn?.reply?.id}</button>
-        `).join('');
-        messageContent = `<div class="interactive-message">${buttons}</div>`;
-    } else if (type === 'list') {
-        const listTitle = interactive.body?.text || 'List Options';
-        const sections = (interactive.action?.sections || []).map(section => {
-            const rows = section.rows.map(row => `
-                <div class="list-item">
-                    <strong>${row.title}</strong><br>
-                    <small>${row.description || ''}</small>
-                </div>
-            `).join('');
-            return `<div class="list-section"><h5>${section.title}</h5>${rows}</div>`;
-        }).join('');
-        messageContent = `<div class="interactive-list"><strong>${listTitle}</strong>${sections}</div>`;
-    } else {
-        messageContent = `
-            <strong>[Interactive]</strong><br>
-            <pre>${JSON.stringify(interactive, null, 2)}</pre>
-        `;
-    }
-}
-
+          const interactive = msg.interactive || msg.message?.interactive;
+          if (interactive?.type === 'button_reply') {
+              messageContent = `[Button] ${interactive.button_reply?.title || interactive.button_reply?.id}`;
+          } else if (interactive?.type === 'list_reply') {
+              messageContent = `[List] ${interactive.list_reply?.title || interactive.list_reply?.id}`;
+          } else {
+              messageContent = `[Interactive] ${JSON.stringify(interactive).slice(0, 100)}...`;
+          }
       } else if (msg.message) {
           messageContent = `[${msg.type}] ${JSON.stringify(msg.message).slice(0, 100)}...`;
       } else {
