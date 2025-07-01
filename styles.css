@@ -36,86 +36,8 @@ body {
     height: 100vh;
 }
 
-/* Auth Container Styles */
-.auth-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    background-color: rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.auth-overlay {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.auth-modal {
-    background-color: white;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 800px;
-    display: flex;
-    overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-}
-
-#firebaseui-auth-container {
-    flex: 1;
-    padding: 2rem;
-    min-width: 300px;
-}
-
-.auth-branding {
-    flex: 1;
-    background-color: #128C7E;
-    color: white;
-    padding: 2rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-}
-
-.auth-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    margin-bottom: 0.5rem;
-}
 
 
-.firebaseui-container {
-    max-width: 100% !important;
-    box-shadow: none !important;
-    margin: 0 !important;
-}
-
-.firebaseui-card-content {
-    padding: 0 !important;
-}
-
-/* Firebase UI overrides */
-.firebaseui-idp-button {
-    border-radius: 4px !important;
-}
-
-.firebaseui-idp-google {
-    background-color: #4285F4 !important;
-}
-
-.firebaseui-idp-button:hover {
-    opacity: 0.9;
-}
 
 .app-header {
     background-color: var(--primary-dark);
