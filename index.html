@@ -1,59 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fred's Inc - WhatsApp CRM Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
+    <title>WhatsApp CRM</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/core.css">
+    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="styles/sidebar.css">
+    <link rel="stylesheet" href="styles/chat-window.css">
+    <link rel="stylesheet" href="styles/chat-tile.css">
+    <link rel="stylesheet" href="styles/chat-message.css">
+    
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Chart.js for Analytics -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Loading Screen CSS -->
     <style>
-        :root {
-            --primary-color: #25D366;
-            --primary-dark: #128C7E;
-            --primary-light: #DCF8C6;
-            --secondary-color: #34B7F1;
-            --background-dark: #111B21;
-            --background-light: #F0F2F5;
-            --chat-background: #E5DDD5;
-            --text-dark: #3B4A54;
-            --text-light: #667781;
-            --white: #FFFFFF;
-            --border-color: #E9EDEF;
-            --error-color: #FF3B30;
-            --success-color: #4CD964;
-            --warning-color: #FFCC00;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
-
-        body {
-            background-color: var(--background-light);
-            color: var(--text-dark);
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Loading Screen */
         .loading-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--background-dark);
+            background-color: #111B21;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -73,7 +55,7 @@
             height: 50px;
             border: 5px solid rgba(255, 255, 255, 0.1);
             border-radius: 50%;
-            border-top-color: var(--primary-color);
+            border-top-color: #25D366;
             animation: spin 1s linear infinite;
         }
 
@@ -82,7 +64,7 @@
         }
 
         .loading-text {
-            color: var(--white);
+            color: white;
             font-size: 18px;
             font-weight: 500;
         }
@@ -98,7 +80,7 @@
         .progress-bar {
             height: 100%;
             width: 0%;
-            background-color: var(--primary-color);
+            background-color: #25D366;
             animation: progress 2s ease-in-out infinite;
         }
 
@@ -106,528 +88,15 @@
             0% { width: 0%; }
             100% { width: 100%; }
         }
-
-
-
-        /* Main App Container */
-        .app-container {
-            display: flex;
-            height: 100vh;
-            width: 100%;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 400px;
-            background-color: var(--white);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-
-        .sidebar-header {
-            padding: 10px 16px;
-            background-color: var(--white);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .toolbar {
-            display: flex;
-            gap: 20px;
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-
-        .icon:hover {
-            opacity: 1;
-        }
-
-        .dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            background-color: var(--white);
-            min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            z-index: 1;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .dropdown-content a {
-            color: var(--text-dark);
-            padding: 12px 16px;
-            text-decoration: none;
-            display: block;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-
-        .dropdown-content a:hover {
-            background-color: var(--background-light);
-        }
-
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
-
-        .search-toolbar {
-            padding: 8px 12px;
-            background-color: var(--background-light);
-            margin: 10px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-        }
-
-        #search-input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            padding: 8px 12px;
-            font-size: 14px;
-            outline: none;
-        }
-
-        .connectivity-notification {
-            background-color: #f8f9e3;
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 13px;
-            color: var(--text-dark);
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .connectivity-notification-title {
-            font-weight: 500;
-        }
-
-        .sidebar-contents {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .conversation-list {
-            height: 100%;
-            overflow-y: auto;
-        }
-
-        .chat-tile {
-            display: flex;
-            padding: 12px;
-            gap: 12px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .chat-tile:hover {
-            background-color: var(--background-light);
-        }
-
-        .chat-tile-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .chat-tile-details {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            min-width: 0;
-        }
-
-        .chat-tile-title {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 4px;
-        }
-
-        .chat-tile-title span:first-child {
-            font-weight: 500;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .chat-tile-title span:last-child {
-            font-size: 12px;
-            color: var(--text-light);
-        }
-
-        .chat-tile-subtitle {
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-            color: var(--text-light);
-        }
-
-        .chat-tile-subtitle span:first-child {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-right: 8px;
-        }
-
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--text-light);
-            text-align: center;
-            padding: 20px;
-        }
-
-        .empty-state i {
-            font-size: 48px;
-            margin-bottom: 16px;
-            color: var(--primary-light);
-        }
-
-        /* Chat Window */
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: var(--chat-background);
-            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4AkEEjIZJxQpJQAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAANElEQVQ4y2NgGAXDFmzatMmKAQ38f//+vT8qHxVjM5ARlYPNQEZUDi4DGVEBLgMZUQEhAwEArXoV+W1qkXAAAAAASUVORK5CYII=');
-            position: relative;
-        }
-
-        .chat-header {
-            background-color: var(--white);
-            padding: 10px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .chat-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-info h2 {
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        .chat-info p {
-            font-size: 13px;
-            color: var(--text-light);
-        }
-
-        .chat-actions {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .action-button {
-            background-color: transparent;
-            border: none;
-            color: var(--text-dark);
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 14px;
-            cursor: pointer;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: background-color 0.2s;
-        }
-
-        .action-button:hover {
-            background-color: var(--background-light);
-        }
-
-        .action-button i {
-            font-size: 16px;
-        }
-
-        .message-container {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .datestamp-container {
-            text-align: center;
-            margin: 10px 0;
-        }
-
-        .datestamp {
-            background-color: var(--white);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            color: var(--text-light);
-            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-        }
-
-        .chat-message-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-            max-width: 80%;
-            align-self: flex-start;
-        }
-
-        .chat-message-avatar {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            object-fit: cover;
-            align-self: flex-end;
-        }
-
-        .chat-messages {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .chat-message {
-            background-color: var(--white);
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-            position: relative;
-            word-wrap: break-word;
-        }
-
-        .chat-message-first {
-            border-top-left-radius: 0;
-        }
-
-        .chat-message-sender {
-            font-weight: 600;
-            margin-bottom: 4px;
-            color: var(--primary-dark);
-        }
-
-        .chat-message-time {
-            font-size: 11px;
-            color: var(--text-light);
-            margin-left: 8px;
-            float: right;
-            margin-top: 2px;
-        }
-
-        .message-input-container {
-            background-color: var(--white);
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .input-wrapper {
-            flex: 1;
-            background-color: var(--background-light);
-            border-radius: 20px;
-            padding: 8px 12px;
-            display: flex;
-            align-items: center;
-        }
-
-        #message-input {
-            flex: 1;
-            border: none;
-            background: transparent;
-            outline: none;
-            font-size: 14px;
-        }
-
-        .input-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .input-action-btn {
-            background: none;
-            border: none;
-            color: var(--text-light);
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .send-button {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--primary-color);
-            border: none;
-            color: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .scroll-to-top-button {
-            position: absolute;
-            bottom: 80px;
-            right: 20px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--white);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .scroll-to-top-button-icon {
-            transform: rotate(180deg);
-        }
-
-        /* User Details */
-        .user-details {
-            width: 300px;
-            background-color: var(--white);
-            border-left: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-profile {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .user-avatar {
-            display: flex;
-            justify-content: center;
-            padding: 30px 0;
-        }
-
-        .avatar-initials {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background-color: var(--primary-light);
-            color: var(--primary-dark);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 36px;
-            font-weight: 600;
-        }
-
-        .user-profile h3 {
-            text-align: center;
-            margin-bottom: 5px;
-        }
-
-        .user-profile p {
-            text-align: center;
-            color: var(--text-light);
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-
-        .user-meta {
-            padding: 0 20px;
-        }
-
-        .meta-item {
-            margin-bottom: 20px;
-        }
-
-        .meta-label {
-            display: block;
-            font-size: 12px;
-            color: var(--text-light);
-            margin-bottom: 5px;
-        }
-
-        .meta-value {
-            font-size: 14px;
-            color: var(--text-dark);
-        }
-
-        .user-notes {
-            padding: 20px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .user-notes h4 {
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        #user-notes {
-            width: 100%;
-            height: 100px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 14px;
-            resize: none;
-            margin-bottom: 10px;
-        }
-
-        .save-button {
-            width: 100%;
-            padding: 10px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        /* Analytics Dashboard */
+        
+        /* Analytics Dashboard Styles */
         .analytics-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: var(--white);
+            background-color: white;
             z-index: 100;
             padding: 20px;
             overflow-y: auto;
@@ -649,8 +118,8 @@
         .timeframe-select {
             padding: 8px 12px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background-color: var(--background-light);
+            border: 1px solid #E9EDEF;
+            background-color: #F0F2F5;
             font-size: 14px;
         }
 
@@ -662,8 +131,8 @@
         }
 
         .metric-card {
-            background-color: var(--white);
-            border: 1px solid var(--border-color);
+            background-color: white;
+            border: 1px solid #E9EDEF;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -677,7 +146,7 @@
 
         .metric-label {
             font-size: 14px;
-            color: var(--text-light);
+            color: #667781;
             margin-bottom: 10px;
         }
 
@@ -689,16 +158,16 @@
         }
 
         .metric-trend.up {
-            color: var(--success-color);
+            color: #4CD964;
         }
 
         .metric-trend.down {
-            color: var(--error-color);
+            color: #FF3B30;
         }
 
         .chart-card {
-            background-color: var(--white);
-            border: 1px solid var(--border-color);
+            background-color: white;
+            border: 1px solid #E9EDEF;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -707,7 +176,7 @@
         .chart-card.wide {
             grid-column: span 2;
         }
-
+        
         /* Error Container */
         .error-container {
             position: fixed;
@@ -723,7 +192,7 @@
         }
 
         .error-content {
-            background-color: var(--white);
+            background-color: white;
             padding: 30px;
             border-radius: 12px;
             max-width: 500px;
@@ -732,63 +201,33 @@
 
         .error-icon {
             font-size: 48px;
-            color: var(--error-color);
+            color: #FF3B30;
             margin-bottom: 20px;
-        }
-
-        .error-content h3 {
-            margin-bottom: 10px;
-            color: var(--text-dark);
-        }
-
-        .error-content p {
-            color: var(--text-light);
-            margin-bottom: 10px;
-        }
-
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .analytics-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .user-details {
-                display: none;
-            }
-            
-            .analytics-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .chart-card.wide {
-                grid-column: span 1;
-            }
         }
     </style>
 </head>
+
 <body>
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-screen">
         <div class="loading-content">
             <div class="loading-spinner"></div>
-            <div class="loading-text">Initializing Dashboard</div>
+            <div class="loading-text">Initializing WhatsApp CRM</div>
             <div class="loading-progress">
                 <div class="progress-bar"></div>
             </div>
         </div>
     </div>
 
-
     <!-- Main App Container -->
-    <div id="app-container" class="app-container" style="display: none;">
+    <main id="app-container" style="display: none;">
         <!-- Sidebar -->
-        <aside class="sidebar">
-            <header class="sidebar-header">
-                <img src="https://picsum.photos/id/10/50" alt="" class="avatar" id="profile-image">
+        <aside id="sidebar">
+            <header id="sidebar-header">
+                <img src="icons/profile-default.png" alt="" class="avatar" id="profile-image">
                 <div class="toolbar">
                     <i class="fas fa-chart-line icon" id="toggle-analytics-btn"></i>
+                    <i class="fas fa-comment-medical icon" id="new-chat-btn"></i>
                     <div class="dropdown">
                         <i class="fas fa-ellipsis-v icon dropdown-button"></i>
                         <div class="dropdown-content">
@@ -797,7 +236,7 @@
                     </div>
                 </div>
             </header>
-            <form class="search-toolbar">
+            <form id="search-toolbar">
                 <input type="search" id="search-input" placeholder="Search conversations...">
                 <i class="fas fa-filter icon"></i>
             </form>
@@ -812,8 +251,8 @@
                     </span>
                 </div>
             </div>
-            <section class="sidebar-contents">
-                <div class="conversation-list" id="conversation-list">
+            <section id="sidebar-contents">
+                <div id="chats-list">
                     <div class="empty-state">
                         <div class="loading-spinner small"></div>
                         <p>Loading conversations...</p>
@@ -821,20 +260,20 @@
                 </div>
             </section>
         </aside>
+        <!-- Sidebar ends -->
 
-        <!-- Chat Window -->
-        <section class="chat-container">
-            <header class="chat-header">
-                <div class="chat-info">
-                    <h2 id="current-chat-name">Select a conversation</h2>
-                    <p id="current-chat-number"></p>
+        <!-- Chat window -->
+        <section id="chat-window">
+            <header id="chat-window-header">
+                <img src="icons/profile-default.png" alt="" class="avatar" id="current-chat-avatar">
+                <div id="active-chat-details">
+                    <h3 id="current-chat-name">Select a conversation</h3>
+                    <div class="info" id="current-chat-number"></div>
                 </div>
                 <div class="chat-actions">
-                    <div class="dropdown">
-                        <select id="agent-select" class="agent-select" disabled>
-                            <option value="">Assign to agent</option>
-                        </select>
-                    </div>
+                    <select id="agent-select" class="agent-select" disabled>
+                        <option value="">Assign to agent</option>
+                    </select>
                     <button id="transfer-btn" class="action-button" disabled>
                         <i class="fas fa-user-plus"></i>
                         <span>Transfer</span>
@@ -845,71 +284,24 @@
                     </button>
                 </div>
             </header>
-            <div class="message-container" id="message-container">
+            <div id="chat-window-contents">
                 <div class="empty-state">
                     <i class="fas fa-comments"></i>
                     <p>Select a conversation to view messages</p>
                 </div>
             </div>
-            <div class="message-input-container" id="message-input-container" style="display: none;">
-                <div class="input-wrapper">
-                    <input type="text" id="message-input" placeholder="Type a message..." disabled>
-                    <div class="input-actions">
-                        <button class="input-action-btn">
-                            <i class="fas fa-paperclip"></i>
-                        </button>
-                    </div>
-                </div>
-                <button id="send-button" class="send-button" disabled>
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
+            <footer id="chat-window-footer" style="display: none;">
+                <i class="fas fa-smile icon"></i>
+                <i class="fas fa-paperclip icon"></i>
+                <input type="text" id="compose-chat-box" placeholder="Type a message" autocomplete="off" disabled>
+                <i class="fas fa-microphone icon"></i>
+            </footer>
             <a class="scroll-to-top-button" href="#"><i class="fas fa-arrow-down scroll-to-top-button-icon"></i></a>
         </section>
-
-        <!-- User Details -->
-        <aside class="user-details">
-            <div class="user-profile">
-                <div class="empty-state">
-                    <i class="fas fa-user"></i>
-                    <p>No user selected</p>
-                </div>
-                <div id="user-details-content" style="display: none;">
-                    <div class="user-avatar">
-                        <div class="avatar-initials" id="avatar-initials">?</div>
-                    </div>
-                    <h3 id="user-name">User Name</h3>
-                    <p id="user-phone">+254 700 000 000</p>
-                    
-                    <div class="user-meta">
-                        <div class="meta-item">
-                            <span class="meta-label">Last Active</span>
-                            <span class="meta-value" id="last-active">Just now</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Business Type</span>
-                            <span class="meta-value" id="business-type">Unknown</span>
-                        </div>
-                        <div class="meta-item">
-                            <span class="meta-label">Status</span>
-                            <span class="meta-value" id="user-status">Active</span>
-                        </div>
-                    </div>
-
-                    <div class="user-notes">
-                        <h4>Notes</h4>
-                        <textarea id="user-notes" placeholder="Add notes about this user..."></textarea>
-                        <button id="save-notes" class="save-button">
-                            <i class="fas fa-save"></i>
-                            <span>Save Notes</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </aside>
+        <!-- Chat window ends -->
 
         <!-- Analytics Dashboard -->
-        <div id="analytics-container" class="analytics-container" style="display: none;">
+        <div id="analytics-container" class="analytics-container">
             <div class="analytics-header">
                 <h2>Conversation Analytics</h2>
                 <div class="analytics-timeframe">
@@ -976,81 +368,498 @@
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 
     <!-- Error Display Container -->
-    <div id="error-container" class="error-container" style="display: none;"></div>
+    <div id="error-container" class="error-container"></div>
 
+    <!-- Import Scripts -->
+    <script src="scripts/scroll-to-top.js"></script>
+    <script src="scripts/check-connectivity.js"></script>
+    
+    <!-- Firebase initialization (from your app.js) -->
+    <script src="scripts/app.js"></script>
+    
+    <!-- Main application logic -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM fully loaded');
-        
-        // Show loading screen initially
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) loadingScreen.style.display = 'flex';
-        
-        // Required elements
-        const requiredElements = {
-            appContainer: document.getElementById('app-container'),
-            errorContainer: document.getElementById('error-container'),
-            loadingScreen: loadingScreen
-        };
-        
-        // Verify all elements exist
-        let missingElements = [];
-        for (const [name, element] of Object.entries(requiredElements)) {
-            if (!element && name !== 'loadingScreen') {
-                console.error('Missing element:', name);
-                missingElements.push(name);
-            }
-        }
-        
-        if (missingElements.length > 0) {
-            const errorMsg = `Missing required elements: ${missingElements.join(', ')}`;
-            console.error(errorMsg);
-            
-            if (requiredElements.errorContainer) {
-                requiredElements.errorContainer.style.display = 'block';
-                requiredElements.errorContainer.innerHTML = `
-                    <div class="error-content">
-                        <i class="fas fa-exclamation-circle error-icon"></i>
-                        <h3>Application Error</h3>
-                        <p>${errorMsg}</p>
-                        <p>Please check your HTML structure.</p>
-                    </div>
-                `;
-            }
-            return;
-        }
-        
-        // Check Firebase availability
+        // Initialize Firebase (from your app.js)
         if (typeof firebase === 'undefined') {
-            const errorMsg = 'Firebase SDK failed to load';
-            console.error(errorMsg);
-            
-            if (requiredElements.errorContainer) {
-                requiredElements.errorContainer.style.display = 'block';
-                requiredElements.errorContainer.innerHTML += `
-                    <div class="error-content">
-                        <i class="fas fa-exclamation-circle error-icon"></i>
-                        <p>${errorMsg}. Please check your internet connection.</p>
-                    </div>
-                `;
-            }
+            showError('Firebase SDK not loaded');
             return;
         }
         
-        // If all checks pass, hide loading screen after a short delay
-        setTimeout(() => {
-            if (requiredElements.loadingScreen) {
-                requiredElements.loadingScreen.style.opacity = '0';
-                setTimeout(() => {
-                    requiredElements.loadingScreen.style.display = 'none';
-                }, 300);
-            }
-        }, 1000);
+        // Get references to DOM elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const appContainer = document.getElementById('app-container');
+        const errorContainer = document.getElementById('error-container');
+        const chatsList = document.getElementById('chats-list');
+        const chatWindowContents = document.getElementById('chat-window-contents');
+        const currentChatName = document.getElementById('current-chat-name');
+        const currentChatNumber = document.getElementById('current-chat-number');
+        const currentChatAvatar = document.getElementById('current-chat-avatar');
+        const composeChatBox = document.getElementById('compose-chat-box');
+        const chatWindowFooter = document.getElementById('chat-window-footer');
+        const analyticsContainer = document.getElementById('analytics-container');
+        const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
+        const searchInput = document.getElementById('search-input');
+        const agentSelect = document.getElementById('agent-select');
+        const transferBtn = document.getElementById('transfer-btn');
+        const aiBtn = document.getElementById('ai-btn');
+        const sendButton = document.getElementById('send-button');
         
-        console.log('All required elements and libraries loaded');
+        // Initialize Firestore
+        const db = firebase.firestore();
+        let currentConversationId = null;
+        let conversations = [];
+        let agents = [];
+        
+        // Show error message
+        function showError(message) {
+            errorContainer.style.display = 'flex';
+            errorContainer.innerHTML = `
+                <div class="error-content">
+                    <i class="fas fa-exclamation-circle error-icon"></i>
+                    <h3>Application Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // Format date
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        
+        // Format time
+        function formatTime(date) {
+            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+        
+        // Initialize the application
+        function initApp() {
+            // Hide loading screen after a short delay
+            setTimeout(() => {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    appContainer.style.display = 'flex';
+                    
+                    // Load initial data
+                    loadAgents();
+                    loadConversations();
+                    setupEventListeners();
+                }, 300);
+            }, 1500);
+        }
+        
+        // Load agents from Firestore
+        function loadAgents() {
+            db.collection("agents").get()
+                .then((querySnapshot) => {
+                    agents = [];
+                    agentSelect.innerHTML = '<option value="">Assign to agent</option>';
+                    
+                    querySnapshot.forEach((doc) => {
+                        const agent = doc.data();
+                        agents.push(agent);
+                        
+                        const option = document.createElement('option');
+                        option.value = doc.id;
+                        option.textContent = agent.name;
+                        agentSelect.appendChild(option);
+                    });
+                    
+                    agentSelect.disabled = false;
+                })
+                .catch((error) => {
+                    console.error("Error loading agents: ", error);
+                });
+        }
+        
+        // Load conversations from Firestore
+        function loadConversations() {
+            chatsList.innerHTML = '<div class="empty-state"><div class="loading-spinner small"></div><p>Loading conversations...</p></div>';
+            
+            db.collection("conversations")
+                .orderBy("lastMessageTime", "desc")
+                .limit(50)
+                .get()
+                .then((querySnapshot) => {
+                    conversations = [];
+                    chatsList.innerHTML = '';
+                    
+                    if (querySnapshot.empty) {
+                        chatsList.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-comment-slash"></i>
+                                <p>No conversations found</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    querySnapshot.forEach((doc) => {
+                        const conversation = doc.data();
+                        conversation.id = doc.id;
+                        conversations.push(conversation);
+                        addConversationToSidebar(conversation);
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error getting conversations: ", error);
+                    chatsList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <p>Error loading conversations</p>
+                        </div>
+                    `;
+                });
+        }
+        
+        // Add conversation to sidebar
+        function addConversationToSidebar(conversation) {
+            const chatTile = document.createElement('div');
+            chatTile.className = 'chat-tile';
+            chatTile.dataset.conversationId = conversation.id;
+            
+            // Format last message time
+            const lastMessageTime = conversation.lastMessageTime?.toDate() || new Date();
+            const timeString = formatTime(lastMessageTime);
+            
+            chatTile.innerHTML = `
+                <img src="${conversation.avatar || 'icons/profile-default.png'}" alt="" class="chat-tile-avatar">
+                <div class="chat-tile-details">
+                    <div class="chat-tile-title">
+                        <span>${conversation.name || conversation.phone || 'Unknown'}</span>
+                        <span>${timeString}</span>
+                    </div>
+                    <div class="chat-tile-subtitle">
+                        <span>${conversation.lastMessage || 'No messages'}</span>
+                        <span class="chat-tile-menu">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            // Add click event to load conversation
+            chatTile.addEventListener('click', () => loadConversation(conversation.id));
+            chatsList.appendChild(chatTile);
+        }
+        
+        // Load a specific conversation
+        function loadConversation(conversationId) {
+            currentConversationId = conversationId;
+            const conversation = conversations.find(c => c.id === conversationId);
+            
+            if (!conversation) return;
+            
+            // Update chat header
+            currentChatName.textContent = conversation.name || conversation.phone || 'Unknown';
+            currentChatNumber.textContent = conversation.phone || '';
+            currentChatAvatar.src = conversation.avatar || 'icons/profile-default.png';
+            
+            // Enable action buttons
+            transferBtn.disabled = false;
+            aiBtn.disabled = false;
+            
+            // Show message input
+            chatWindowFooter.style.display = 'flex';
+            composeChatBox.disabled = false;
+            
+            // Clear previous messages
+            chatWindowContents.innerHTML = '';
+            
+            // Load messages for this conversation
+            db.collection("conversations").doc(conversationId).collection("messages")
+                .orderBy("timestamp", "asc")
+                .get()
+                .then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        chatWindowContents.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-comment-alt"></i>
+                                <p>No messages in this conversation</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    let currentDate = null;
+                    
+                    querySnapshot.forEach((doc) => {
+                        const message = doc.data();
+                        const messageDate = message.timestamp.toDate();
+                        const dateString = formatDate(messageDate);
+                        
+                        // Add date stamp if needed
+                        if (dateString !== currentDate) {
+                            currentDate = dateString;
+                            addDateStamp(dateString);
+                        }
+                        
+                        addMessageToChat(message, conversation.avatar);
+                    });
+                    
+                    // Scroll to bottom
+                    setTimeout(() => {
+                        chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
+                    }, 100);
+                })
+                .catch((error) => {
+                    console.error("Error getting messages: ", error);
+                });
+        }
+        
+        // Add a message to the chat window
+        function addMessageToChat(message, avatar) {
+            const messageGroup = document.createElement('div');
+            messageGroup.className = 'chat-message-group';
+            
+            // Simple grouping logic - group messages from same sender within 5 minutes
+            const isFirstInGroup = true; // For simplicity, we'll treat each message as new group
+            
+            messageGroup.innerHTML = `
+                <img src="${message.senderAvatar || avatar || 'icons/profile-default.png'}" alt="" class="chat-message-avatar">
+                <div class="chat-messages">
+                    <div class="chat-message-container">
+                        <div class="chat-message ${isFirstInGroup ? 'chat-message-first' : ''}">
+                            ${isFirstInGroup ? `<div class="chat-message-sender">${message.sender || 'Unknown'}</div>` : ''}
+                            ${message.text}
+                            <span class="chat-message-time">${formatTime(message.timestamp.toDate())}</span>
+                        </div>
+                        <div class="emoji-toolbar">
+                            <i class="fas fa-smile icon reaction-button"></i>
+                            <div class="reaction-emoji-selector">
+                                <a href="#" class="icon">👍🏻</a>
+                                <a href="#" class="icon">💖</a>
+                                <a href="#" class="icon">😂</a>
+                                <a href="#" class="icon">😮</a>
+                                <a href="#" class="icon">😢</a>
+                                <a href="#" class="icon">🙏</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            chatWindowContents.appendChild(messageGroup);
+        }
+        
+        // Add a date stamp to the chat
+        function addDateStamp(dateString) {
+            const dateStamp = document.createElement('div');
+            dateStamp.className = 'datestamp-container';
+            dateStamp.innerHTML = `
+                <span class="datestamp">
+                    ${dateString}
+                </span>
+            `;
+            chatWindowContents.appendChild(dateStamp);
+        }
+        
+        // Initialize analytics charts
+        function initAnalyticsCharts() {
+            // Conversations over time chart
+            const ctx1 = document.getElementById('conversations-chart').getContext('2d');
+            new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Conversations',
+                        data: [12, 19, 3, 5, 2, 3, 8],
+                        borderColor: '#25D366',
+                        backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Status distribution chart
+            const ctx2 = document.getElementById('status-distribution-chart').getContext('2d');
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active', 'Pending', 'Closed', 'Spam'],
+                    datasets: [{
+                        data: [30, 15, 40, 15],
+                        backgroundColor: [
+                            '#25D366',
+                            '#FFCC00',
+                            '#34B7F1',
+                            '#FF3B30'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+            
+            // Business type chart
+            const ctx3 = document.getElementById('business-type-chart').getContext('2d');
+            new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: ['Retail', 'Service', 'Wholesale', 'Other'],
+                    datasets: [{
+                        label: 'Business Types',
+                        data: [12, 19, 3, 5],
+                        backgroundColor: '#25D366'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Response time chart
+            const ctx4 = document.getElementById('response-time-chart').getContext('2d');
+            new Chart(ctx4, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Response Time (min)',
+                        data: [5, 8, 3, 6, 2, 4, 7],
+                        borderColor: '#25D366',
+                        backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Toggle analytics dashboard
+            toggleAnalyticsBtn.addEventListener('click', function() {
+                analyticsContainer.style.display = analyticsContainer.style.display === 'block' ? 'none' : 'block';
+                if (analyticsContainer.style.display === 'block') {
+                    initAnalyticsCharts();
+                }
+            });
+            
+            // Send message
+            composeChatBox.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && currentConversationId) {
+                    const messageText = composeChatBox.value.trim();
+                    if (messageText) {
+                        sendMessage(messageText);
+                        composeChatBox.value = '';
+                    }
+                }
+            });
+            
+            // Search conversations
+            searchInput.addEventListener('input', function() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const chatTiles = chatsList.querySelectorAll('.chat-tile');
+                
+                chatTiles.forEach(tile => {
+                    const name = tile.querySelector('.chat-tile-title span:first-child').textContent.toLowerCase();
+                    const message = tile.querySelector('.chat-tile-subtitle span:first-child').textContent.toLowerCase();
+                    
+                    if (name.includes(searchTerm) || message.includes(searchTerm)) {
+                        tile.style.display = 'flex';
+                    } else {
+                        tile.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Assign agent
+            agentSelect.addEventListener('change', function() {
+                if (currentConversationId && this.value) {
+                    assignAgentToConversation(this.value);
+                }
+            });
+        }
+        
+        // Send a new message
+        function sendMessage(text) {
+            if (!currentConversationId) return;
+            
+            const message = {
+                text: text,
+                sender: "You",
+                senderAvatar: "icons/profile-default.png",
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                status: "sent"
+            };
+            
+            // Add message to Firestore
+            db.collection("conversations").doc(currentConversationId).collection("messages")
+                .add(message)
+                .then(() => {
+                    // Update last message in conversation
+                    db.collection("conversations").doc(currentConversationId).update({
+                        lastMessage: text,
+                        lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error sending message: ", error);
+                });
+        }
+        
+        // Assign agent to conversation
+        function assignAgentToConversation(agentId) {
+            if (!currentConversationId || !agentId) return;
+            
+            const agent = agents.find(a => a.id === agentId);
+            if (!agent) return;
+            
+            db.collection("conversations").doc(currentConversationId).update({
+                assignedAgent: agentId,
+                assignedAgentName: agent.name
+            })
+            .then(() => {
+                console.log("Agent assigned successfully");
+            })
+            .catch((error) => {
+                console.error("Error assigning agent: ", error);
+            });
+        }
+        
+        // Initialize the application
+        initApp();
     });
     </script>
 </body>
