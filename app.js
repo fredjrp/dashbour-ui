@@ -153,24 +153,82 @@ function showErrorToast(message) {
 function initApp() {
   auth.onAuthStateChanged(user => {
     if (user) {
-      console.log('User signed in:', user.email);
+      console.log('User signed in:', user.email || 'Anonymous');
       currentUser = user;
       authButton.textContent = 'Sign Out';
 
-      authContainer.style.display = 'none';
-      appContainer.style.display = 'flex';
+      document.getElementById('auth-container').style.display = 'none';
+      document.getElementById('app-container').style.display = 'flex';
 
       setupRealTimeListeners();
       loadAnalyticsData();
     } else {
-      // Auto sign-in test user programmatically (optional)
-      firebase.auth().signInWithEmailAndPassword('testuser@example.com', 'TestPass123')
-        .catch(error => {
-          console.error('Auto sign-in failed:', error);
-          // fallback: show FirebaseUI if you want
-        });
+      // Show auth UI
+      document.getElementById('auth-container').style.display = 'flex';
+      document.getElementById('app-container').style.display = 'none';
+
+      // Hide forms initially
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('signup-form').style.display = 'none';
     }
   });
+
+  // Toggle between login and signup views
+  document.getElementById('show-login').addEventListener('click', () => {
+    document.getElementById('login-form').style.display = 'block';
+    document.getElementById('signup-form').style.display = 'none';
+  });
+
+  document.getElementById('show-signup').addEventListener('click', () => {
+    document.getElementById('signup-form').style.display = 'block';
+    document.getElementById('login-form').style.display = 'none';
+  });
+
+  // Sign In handler
+  document.getElementById('login-button').addEventListener('click', () => {
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .then(userCredential => {
+        afterAuth(userCredential.user);
+      })
+      .catch(error => {
+        document.getElementById('login-error').textContent = error.message;
+      });
+  });
+
+  // Sign Up handler
+  document.getElementById('signup-button').addEventListener('click', () => {
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+
+    firebase.auth().createUserWithEmailAndPassword(email, password)
+      .then(userCredential => {
+        afterAuth(userCredential.user);
+      })
+      .catch(error => {
+        document.getElementById('signup-error').textContent = error.message;
+      });
+  });
+
+  // Logout handler
+  authButton.addEventListener('click', () => {
+    if (currentUser) {
+      firebase.auth().signOut();
+    }
+  });
+}
+
+// Handle post-auth UI setup
+function afterAuth(user) {
+  currentUser = user;
+  document.getElementById('auth-container').style.display = 'none';
+  document.getElementById('app-container').style.display = 'flex';
+  authButton.textContent = 'Sign Out';
+
+  setupRealTimeListeners();
+  loadAnalyticsData();
 }
 
   conversationList.addEventListener('click', (e) => {
