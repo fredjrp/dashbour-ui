@@ -153,37 +153,26 @@ function showErrorToast(message) {
 function initApp() {
   auth.onAuthStateChanged(user => {
     if (user) {
-        console.log('User signed in:', user.email || 'Anonymous');
-        currentUser = user;
-        authButton.textContent = 'Sign Out';
+      console.log('User signed in:', user.email);
+      currentUser = user;
+      authButton.textContent = 'Sign Out';
 
-        authContainer.style.display = 'none';
-        appContainer.style.display = 'flex';
+      authContainer.style.display = 'none';
+      appContainer.style.display = 'flex';
 
-        setupRealTimeListeners();
-        loadAnalyticsData();
+      setupRealTimeListeners();
+      loadAnalyticsData();
     } else {
-        console.log('No user signed in. Automatically signing in anonymously for testing...');
-        
-        // Bypass: Sign in anonymously
-        auth.signInAnonymously()
-            .catch(error => {
-                console.error('Anonymous sign-in failed:', error);
-                authContainer.style.display = 'flex';
-                appContainer.style.display = 'none';
-                ui.start('#auth-container', uiConfig); // fallback if anon fails
-            });
-    }
-});
-
-  authButton.addEventListener('click', () => {
-      if (currentUser) {
-          auth.signOut();
-      } else {
-          authContainer.style.display = 'flex';
+      // Auto sign-in test user programmatically (optional)
+      firebase.auth().signInWithEmailAndPassword('testuser@example.com', 'TestPass123')
+        .catch(error => {
+          console.error('Auto sign-in failed:', error);
+          // fallback: show FirebaseUI if you want
           ui.start('#auth-container', uiConfig);
-      }
+        });
+    }
   });
+}
 
   conversationList.addEventListener('click', (e) => {
       const conversationItem = e.target.closest('.conversation-item');
