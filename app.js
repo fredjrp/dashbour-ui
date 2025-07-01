@@ -168,7 +168,6 @@ function initApp() {
         .catch(error => {
           console.error('Auto sign-in failed:', error);
           // fallback: show FirebaseUI if you want
-          ui.start('#auth-container', uiConfig);
         });
     }
   });
