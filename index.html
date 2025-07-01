@@ -836,6 +836,40 @@
         </div>
     </div>
 
+ <!-- Auth Container (shown when not logged in) -->
+<div id="auth-container" class="auth-container">
+  <div class="auth-modal">
+    <div class="auth-branding">
+      <div class="auth-logo-container">
+        <i class="fas fa-comment-dots auth-icon"></i>
+      </div>
+      <h2>WhatsApp CRM Dashboard</h2>
+      <p>Sign in or create an account to access your conversations</p>
+    </div>
+
+    <div class="auth-buttons">
+      <button id="show-login" class="auth-btn">Sign In</button>
+      <button id="show-signup" class="auth-btn secondary">Sign Up</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="login-form" class="auth-form" style="display: none;">
+      <input type="email" id="login-email" placeholder="Email" />
+      <input type="password" id="login-password" placeholder="Password" />
+      <button id="login-button">Login</button>
+      <p id="login-error" class="auth-error"></p>
+    </div>
+
+    <!-- Signup Form -->
+    <div id="signup-form" class="auth-form" style="display: none;">
+      <input type="email" id="signup-email" placeholder="Email" />
+      <input type="password" id="signup-password" placeholder="Password" />
+      <button id="signup-button">Create Account</button>
+      <p id="signup-error" class="auth-error"></p>
+    </div>
+  </div>
+</div>
+
     <!-- Main App Container (hidden initially) -->
     <div id="app-container" class="app-container" style="display: none;">
         <!-- Sidebar -->
