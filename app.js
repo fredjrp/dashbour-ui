@@ -21,18 +21,6 @@ const analyticsCharts = {
     responseTimeTrends: null
 };
 
-// Initialize FirebaseUI
-const uiConfig = {
-  signInSuccessUrl: '/',
-  signInOptions: [
-    firebase.auth.EmailAuthProvider.PROVIDER_ID,
-    firebase.auth.GoogleAuthProvider.PROVIDER_ID
-  ],
-  tosUrl: '/terms-of-service',
-  privacyPolicyUrl: '/privacy-policy',
-  signInFlow: 'popup'
-};
-const ui = new firebaseui.auth.AuthUI(firebase.auth());
 
 // DOM elements
 const conversationList = document.getElementById('conversation-list');
@@ -59,7 +47,6 @@ const searchInput = document.getElementById('search-input');
 const agentSelect = document.getElementById('agent-select');
 const analyticsContainer = document.getElementById('analytics-container');
 const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
-const authContainer = document.getElementById('auth-container');
 const appContainer = document.getElementById('app-container');
 
 // State variables
@@ -157,59 +144,14 @@ function initApp() {
       currentUser = user;
       authButton.textContent = 'Sign Out';
 
-      document.getElementById('auth-container').style.display = 'none';
       document.getElementById('app-container').style.display = 'flex';
 
       setupRealTimeListeners();
       loadAnalyticsData();
     } else {
-      // Show auth UI
-      document.getElementById('auth-container').style.display = 'flex';
-      document.getElementById('app-container').style.display = 'none';
-
-      // Hide forms initially
-      document.getElementById('login-form').style.display = 'none';
-      document.getElementById('signup-form').style.display = 'none';
+      // User is signed out - redirect to login or show auth UI
+      window.location.href = '/index.html'; // Or your login page
     }
-  });
-
-  // Toggle between login and signup views
-  document.getElementById('show-login').addEventListener('click', () => {
-    document.getElementById('login-form').style.display = 'block';
-    document.getElementById('signup-form').style.display = 'none';
-  });
-
-  document.getElementById('show-signup').addEventListener('click', () => {
-    document.getElementById('signup-form').style.display = 'block';
-    document.getElementById('login-form').style.display = 'none';
-  });
-
-  // Sign In handler
-  document.getElementById('login-button').addEventListener('click', () => {
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-
-    firebase.auth().signInWithEmailAndPassword(email, password)
-      .then(userCredential => {
-        afterAuth(userCredential.user);
-      })
-      .catch(error => {
-        document.getElementById('login-error').textContent = error.message;
-      });
-  });
-
-  // Sign Up handler
-  document.getElementById('signup-button').addEventListener('click', () => {
-    const email = document.getElementById('signup-email').value;
-    const password = document.getElementById('signup-password').value;
-
-    firebase.auth().createUserWithEmailAndPassword(email, password)
-      .then(userCredential => {
-        afterAuth(userCredential.user);
-      })
-      .catch(error => {
-        document.getElementById('signup-error').textContent = error.message;
-      });
   });
 
   // Logout handler
@@ -218,17 +160,6 @@ function initApp() {
       firebase.auth().signOut();
     }
   });
-}
-
-// Handle post-auth UI setup
-function afterAuth(user) {
-  currentUser = user;
-  document.getElementById('auth-container').style.display = 'none';
-  document.getElementById('app-container').style.display = 'flex';
-  authButton.textContent = 'Sign Out';
-
-  setupRealTimeListeners();
-  loadAnalyticsData();
 }
 
   conversationList.addEventListener('click', (e) => {
