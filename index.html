@@ -1045,9 +1045,7 @@
         
         // Required elements
         const requiredElements = {
-            authContainer: document.getElementById('auth-container'),
             appContainer: document.getElementById('app-container'),
-            firebaseAuthContainer: document.getElementById('firebaseui-auth-container'),
             errorContainer: document.getElementById('error-container'),
             loadingScreen: loadingScreen
         };
@@ -1055,7 +1053,7 @@
         // Verify all elements exist
         let missingElements = [];
         for (const [name, element] of Object.entries(requiredElements)) {
-            if (!element && name !== 'firebaseAuthContainer' && name !== 'loadingScreen') {
+            if (!element && name !== 'loadingScreen') {
                 console.error('Missing element:', name);
                 missingElements.push(name);
             }
