@@ -152,32 +152,29 @@ function showErrorToast(message) {
 // Initialize the app
 function initApp() {
   auth.onAuthStateChanged(user => {
-      if (user) {
-          console.log('User signed in:', user.email);
-          currentUser = user;
-          authButton.textContent = 'Sign Out';
-          
-          authContainer.style.display = 'none';
-          appContainer.style.display = 'flex';
-          
-          setupRealTimeListeners();
-          loadAnalyticsData();
-      } else {
-          console.log('User signed out');
-          currentUser = null;
-          authButton.textContent = 'Sign In';
-          
-          authContainer.style.display = 'flex';
-          appContainer.style.display = 'none';
-          
-          if (unsubscribeConversations) unsubscribeConversations();
-          if (unsubscribeMessages) unsubscribeMessages();
-          if (unsubscribeAgents) unsubscribeAgents();
-          clearConversations();
-          
-          ui.start('#auth-container', uiConfig);
-      }
-  });
+    if (user) {
+        console.log('User signed in:', user.email || 'Anonymous');
+        currentUser = user;
+        authButton.textContent = 'Sign Out';
+
+        authContainer.style.display = 'none';
+        appContainer.style.display = 'flex';
+
+        setupRealTimeListeners();
+        loadAnalyticsData();
+    } else {
+        console.log('No user signed in. Automatically signing in anonymously for testing...');
+        
+        // Bypass: Sign in anonymously
+        auth.signInAnonymously()
+            .catch(error => {
+                console.error('Anonymous sign-in failed:', error);
+                authContainer.style.display = 'flex';
+                appContainer.style.display = 'none';
+                ui.start('#auth-container', uiConfig); // fallback if anon fails
+            });
+    }
+});
 
   authButton.addEventListener('click', () => {
       if (currentUser) {
