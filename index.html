@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fred's Inc - WhatsApp CRM Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.1/firebase-ui-auth.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.css">
-    <link rel="stylesheet" href="styles.css">
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
@@ -17,6 +17,812 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
+    <style>
+        :root {
+            --primary-color: #25D366;
+            --primary-dark: #128C7E;
+            --primary-light: #DCF8C6;
+            --secondary-color: #34B7F1;
+            --background-dark: #111B21;
+            --background-light: #F0F2F5;
+            --chat-background: #E5DDD5;
+            --text-dark: #3B4A54;
+            --text-light: #667781;
+            --white: #FFFFFF;
+            --border-color: #E9EDEF;
+            --error-color: #FF3B30;
+            --success-color: #4CD964;
+            --warning-color: #FFCC00;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--background-light);
+            color: var(--text-dark);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--background-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: var(--white);
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--primary-color);
+            animation: progress 2s ease-in-out infinite;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+
+        /* Auth Container */
+        .auth-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--background-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 900;
+        }
+
+        .auth-modal {
+            background-color: var(--white);
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .auth-branding {
+            margin-bottom: 30px;
+        }
+
+        .auth-logo-container {
+            width: 80px;
+            height: 80px;
+            background-color: var(--primary-light);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 20px;
+        }
+
+        .auth-icon {
+            font-size: 36px;
+            color: var(--primary-dark);
+        }
+
+        .auth-modal h2 {
+            color: var(--text-dark);
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+
+        .auth-modal p {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+
+        /* Main App Container */
+        .app-container {
+            display: flex;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 400px;
+            background-color: var(--white);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .sidebar-header {
+            padding: 10px 16px;
+            background-color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 20px;
+        }
+
+        .icon {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .icon:hover {
+            opacity: 1;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: var(--white);
+            min-width: 200px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            z-index: 1;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .dropdown-content a {
+            color: var(--text-dark);
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .dropdown-content a:hover {
+            background-color: var(--background-light);
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .search-toolbar {
+            padding: 8px 12px;
+            background-color: var(--background-light);
+            margin: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 8px 12px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .connectivity-notification {
+            background-color: #f8f9e3;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-dark);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .connectivity-notification-title {
+            font-weight: 500;
+        }
+
+        .sidebar-contents {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .conversation-list {
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .chat-tile {
+            display: flex;
+            padding: 12px;
+            gap: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chat-tile:hover {
+            background-color: var(--background-light);
+        }
+
+        .chat-tile-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .chat-tile-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .chat-tile-title {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .chat-tile-title span:first-child {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-tile-title span:last-child {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .chat-tile-subtitle {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            color: var(--text-light);
+        }
+
+        .chat-tile-subtitle span:first-child {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 8px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-light);
+            text-align: center;
+            padding: 20px;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            color: var(--primary-light);
+        }
+
+        /* Chat Window */
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--chat-background);
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4AkEEjIZJxQpJQAAAB1pVFh0Q29tbWVudAAAAAAAQ3JlYXRlZCB3aXRoIEdJTVBkLmUHAAAANElEQVQ4y2NgGAXDFmzatMmKAQ38f//+vT8qHxVjM5ARlYPNQEZUDi4DGVEBLgMZUQEhAwEArXoV+W1qkXAAAAAASUVORK5CYII=');
+            position: relative;
+        }
+
+        .chat-header {
+            background-color: var(--white);
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chat-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-info h2 {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .chat-info p {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .action-button {
+            background-color: transparent;
+            border: none;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .action-button:hover {
+            background-color: var(--background-light);
+        }
+
+        .action-button i {
+            font-size: 16px;
+        }
+
+        .message-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .datestamp-container {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .datestamp {
+            background-color: var(--white);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: var(--text-light);
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        .chat-message-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            max-width: 80%;
+            align-self: flex-start;
+        }
+
+        .chat-message-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            align-self: flex-end;
+        }
+
+        .chat-messages {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .chat-message {
+            background-color: var(--white);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .chat-message-first {
+            border-top-left-radius: 0;
+        }
+
+        .chat-message-sender {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: var(--primary-dark);
+        }
+
+        .chat-message-time {
+            font-size: 11px;
+            color: var(--text-light);
+            margin-left: 8px;
+            float: right;
+            margin-top: 2px;
+        }
+
+        .message-input-container {
+            background-color: var(--white);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-wrapper {
+            flex: 1;
+            background-color: var(--background-light);
+            border-radius: 20px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+        }
+
+        #message-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .send-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: none;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .scroll-to-top-button {
+            position: absolute;
+            bottom: 80px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .scroll-to-top-button-icon {
+            transform: rotate(180deg);
+        }
+
+        /* User Details */
+        .user-details {
+            width: 300px;
+            background-color: var(--white);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-profile {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .user-avatar {
+            display: flex;
+            justify-content: center;
+            padding: 30px 0;
+        }
+
+        .avatar-initials {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: var(--primary-light);
+            color: var(--primary-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            font-weight: 600;
+        }
+
+        .user-profile h3 {
+            text-align: center;
+            margin-bottom: 5px;
+        }
+
+        .user-profile p {
+            text-align: center;
+            color: var(--text-light);
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .user-meta {
+            padding: 0 20px;
+        }
+
+        .meta-item {
+            margin-bottom: 20px;
+        }
+
+        .meta-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+
+        .meta-value {
+            font-size: 14px;
+            color: var(--text-dark);
+        }
+
+        .user-notes {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .user-notes h4 {
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        #user-notes {
+            width: 100%;
+            height: 100px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            resize: none;
+            margin-bottom: 10px;
+        }
+
+        .save-button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Analytics Dashboard */
+        .analytics-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--white);
+            z-index: 100;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .analytics-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .analytics-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .timeframe-select {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--background-light);
+            font-size: 14px;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background-color: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .metric-trend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+        }
+
+        .metric-trend.up {
+            color: var(--success-color);
+        }
+
+        .metric-trend.down {
+            color: var(--error-color);
+        }
+
+        .chart-card {
+            background-color: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .chart-card.wide {
+            grid-column: span 2;
+        }
+
+        /* Error Container */
+        .error-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1100;
+        }
+
+        .error-content {
+            background-color: var(--white);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 48px;
+            color: var(--error-color);
+            margin-bottom: 20px;
+        }
+
+        .error-content h3 {
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+
+        .error-content p {
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .analytics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .user-details {
+                display: none;
+            }
+            
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card.wide {
+                grid-column: span 1;
+            }
+        }
+    </style>
 </head>
 <body>
     <!-- Loading Screen -->
@@ -46,28 +852,130 @@
 
     <!-- Main App Container (hidden initially) -->
     <div id="app-container" class="app-container" style="display: none;">
-        <header class="app-header">
-            <div class="header-left">
-                <div class="logo-container">
-                    <i class="fas fa-comment-dots logo-icon"></i>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <header class="sidebar-header">
+                <img src="https://picsum.photos/id/10/50" alt="" class="avatar" id="profile-image">
+                <div class="toolbar">
+                    <i class="fas fa-chart-line icon" id="toggle-analytics-btn"></i>
+                    <div class="dropdown">
+                        <i class="fas fa-ellipsis-v icon dropdown-button"></i>
+                        <div class="dropdown-content">
+                            <a href="#" id="auth-button"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
+                        </div>
+                    </div>
                 </div>
-                <h1>WhatsApp CRM Dashboard</h1>
-            </div>
-            <div class="header-right">
-                <button id="toggle-analytics-btn" class="analytics-toggle">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Analytics</span>
-                </button>
-                <div class="status-indicator">
-                    <span class="status-dot active"></span>
-                    <span>Connected</span>
+            </header>
+            <form class="search-toolbar">
+                <input type="search" id="search-input" placeholder="Search conversations...">
+                <i class="fas fa-filter icon"></i>
+            </form>
+            <div class="connectivity-notification">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <div class="connectivity-notification-title">
+                        WhatsApp Connected
+                    </div>
+                    <span>
+                        All systems operational
+                    </span>
                 </div>
-                <button id="auth-button" class="auth-button">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Sign Out</span>
+            </div>
+            <section class="sidebar-contents">
+                <div class="conversation-list" id="conversation-list">
+                    <div class="empty-state">
+                        <div class="loading-spinner small"></div>
+                        <p>Loading conversations...</p>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Chat Window -->
+        <section class="chat-container">
+            <header class="chat-header">
+                <div class="chat-info">
+                    <h2 id="current-chat-name">Select a conversation</h2>
+                    <p id="current-chat-number"></p>
+                </div>
+                <div class="chat-actions">
+                    <div class="dropdown">
+                        <select id="agent-select" class="agent-select" disabled>
+                            <option value="">Assign to agent</option>
+                        </select>
+                    </div>
+                    <button id="transfer-btn" class="action-button" disabled>
+                        <i class="fas fa-user-plus"></i>
+                        <span>Transfer</span>
+                    </button>
+                    <button id="ai-btn" class="action-button" disabled>
+                        <i class="fas fa-robot"></i>
+                        <span>AI Mode</span>
+                    </button>
+                </div>
+            </header>
+            <div class="message-container" id="message-container">
+                <div class="empty-state">
+                    <i class="fas fa-comments"></i>
+                    <p>Select a conversation to view messages</p>
+                </div>
+            </div>
+            <div class="message-input-container" id="message-input-container" style="display: none;">
+                <div class="input-wrapper">
+                    <input type="text" id="message-input" placeholder="Type a message..." disabled>
+                    <div class="input-actions">
+                        <button class="input-action-btn">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                    </div>
+                </div>
+                <button id="send-button" class="send-button" disabled>
+                    <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
-        </header>
+            <a class="scroll-to-top-button" href="#"><i class="fas fa-arrow-down scroll-to-top-button-icon"></i></a>
+        </section>
+
+        <!-- User Details -->
+        <aside class="user-details">
+            <div class="user-profile">
+                <div class="empty-state">
+                    <i class="fas fa-user"></i>
+                    <p>No user selected</p>
+                </div>
+                <div id="user-details-content" style="display: none;">
+                    <div class="user-avatar">
+                        <div class="avatar-initials" id="avatar-initials">?</div>
+                    </div>
+                    <h3 id="user-name">User Name</h3>
+                    <p id="user-phone">+254 700 000 000</p>
+                    
+                    <div class="user-meta">
+                        <div class="meta-item">
+                            <span class="meta-label">Last Active</span>
+                            <span class="meta-value" id="last-active">Just now</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Business Type</span>
+                            <span class="meta-value" id="business-type">Unknown</span>
+                        </div>
+                        <div class="meta-item">
+                            <span class="meta-label">Status</span>
+                            <span class="meta-value" id="user-status">Active</span>
+                        </div>
+                    </div>
+
+                    <div class="user-notes">
+                        <h4>Notes</h4>
+                        <textarea id="user-notes" placeholder="Add notes about this user..."></textarea>
+                        <button id="save-notes" class="save-button">
+                            <i class="fas fa-save"></i>
+                            <span>Save Notes</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
 
         <!-- Analytics Dashboard -->
         <div id="analytics-container" class="analytics-container" style="display: none;">
@@ -137,139 +1045,11 @@
                 </div>
             </div>
         </div>
-
-        <div class="main-content">
-            <aside class="sidebar">
-                <div class="sidebar-toolbar">
-                    <div class="search-container">
-                        <i class="fas fa-search search-icon"></i>
-                        <input type="text" id="search-input" placeholder="Search conversations..." class="search-input">
-                    </div>
-                    <div class="filters-container">
-                        <div class="filter-group">
-                            <label for="filter-business-type" class="filter-label">Business Type</label>
-                            <select id="filter-business-type" class="filter-select">
-                                <option value="">All Types</option>
-                                <option value="biz_housing">Housing</option>
-                                <option value="biz_rental">Rental</option>
-                                <option value="biz_sale">Sale</option>
-                                <option value="biz_commercial">Commercial</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label for="filter-status" class="filter-label">Status</label>
-                            <select id="filter-status" class="filter-select">
-                                <option value="">All Statuses</option>
-                                <option value="active">Active</option>
-                                <option value="assigned">Assigned</option>
-                                <option value="ai">AI Mode</option>
-                                <option value="closed">Closed</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="conversation-list" id="conversation-list">
-                    <div class="empty-state">
-                        <div class="loading-spinner small"></div>
-                        <p>Loading conversations...</p>
-                    </div>
-                </div>
-            </aside>
-
-            <main class="chat-container">
-                <div class="chat-header">
-                    <div class="chat-info">
-                        <h2 id="current-chat-name">Select a conversation</h2>
-                        <p id="current-chat-number"></p>
-                    </div>
-                    <div class="chat-actions">
-                        <div class="select-wrapper">
-                            <select id="agent-select" class="agent-select" disabled>
-                                <option value="">Assign to agent</option>
-                            </select>
-                            <i class="fas fa-chevron-down select-arrow"></i>
-                        </div>
-                        <button id="transfer-btn" class="action-button" disabled>
-                            <i class="fas fa-user-plus"></i>
-                            <span>Transfer</span>
-                        </button>
-                        <button id="ai-btn" class="action-button" disabled>
-                            <i class="fas fa-robot"></i>
-                            <span>AI Mode</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="message-container" id="message-container">
-                    <div class="empty-state">
-                        <i class="fas fa-comments"></i>
-                        <p>Select a conversation to view messages</p>
-                    </div>
-                </div>
-
-                <div class="message-input-container" id="message-input-container" style="display: none;">
-                    <div class="input-wrapper">
-                        <input type="text" id="message-input" placeholder="Type a message..." disabled>
-                        <div class="input-actions">
-                            <button class="input-action-btn">
-                                <i class="fas fa-paperclip"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <button id="send-button" class="send-button" disabled>
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
-                </div>
-            </main>
-
-            <aside class="user-details">
-                <div class="user-profile">
-                    <div class="empty-state">
-                        <i class="fas fa-user"></i>
-                        <p>No user selected</p>
-                    </div>
-                    <div id="user-details-content" style="display: none;">
-                        <div class="user-avatar">
-                            <div class="avatar-initials" id="avatar-initials">?</div>
-                        </div>
-                        <h3 id="user-name">User Name</h3>
-                        <p id="user-phone">+254 700 000 000</p>
-                        
-                        <div class="user-meta">
-                            <div class="meta-item">
-                                <span class="meta-label">Last Active</span>
-                                <span class="meta-value" id="last-active">Just now</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Business Type</span>
-                                <span class="meta-value" id="business-type">Unknown</span>
-                            </div>
-                            <div class="meta-item">
-                                <span class="meta-label">Status</span>
-                                <span class="meta-value" id="user-status">Active</span>
-                            </div>
-                        </div>
-
-                        <div class="user-notes">
-                            <h4>Notes</h4>
-                            <textarea id="user-notes" placeholder="Add notes about this user..."></textarea>
-                            <button id="save-notes" class="save-button">
-                                <i class="fas fa-save"></i>
-                                <span>Save Notes</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-        </div>
     </div>
 
     <!-- Error Display Container -->
     <div id="error-container" class="error-container" style="display: none;"></div>
 
-    <script src="app.js"></script>
-    
-    <!-- Initialization Check -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         console.log('DOM fully loaded');
@@ -343,6 +1123,6 @@
         
         console.log('All required elements and libraries loaded');
     });
-</script>
+    </script>
 </body>
 </html>
