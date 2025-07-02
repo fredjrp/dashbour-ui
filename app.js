@@ -27,6 +27,8 @@ const searchInput = document.getElementById('search-input');
 const aiToggleBtn = document.getElementById('ai-toggle-btn');
 const settingsModal = document.getElementById('settings-modal');
 const contactInfoModal = document.getElementById('contact-info-modal');
+const emojiBtn = document.getElementById('emoji-btn');
+const emojiPicker = document.getElementById('emoji-picker');
 
 // State variables
 let currentUser = null;
@@ -44,9 +46,9 @@ function initApp() {
       currentUser = user;
       setupRealTimeListeners();
       setupEventListeners();
+      initEmojiPicker();
       updateConnectionStatus(true);
     } else {
-      // Handle unauthorized access
       window.location.href = 'login.html';
     }
   });
@@ -54,10 +56,10 @@ function initApp() {
 
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-  // Listen for chats where current user is a participant
+  // For Firestore index error, either create the index or use simpler query:
   unsubscribeChats = db.collection('chats')
     .where('participants', 'array-contains', currentUser.uid)
-    .orderBy('lastUpdated', 'desc')
+    // .orderBy('lastUpdated', 'desc') // Remove if index not created
     .onSnapshot(snapshot => {
       chats = [];
       snapshot.forEach(doc => {
@@ -69,6 +71,8 @@ function setupRealTimeListeners() {
           aiEnabled: chat.aiEnabled || false
         });
       });
+      // Sort locally if not using orderBy
+      chats.sort((a, b) => b.lastUpdated - a.lastUpdated);
       renderChatsList();
     }, error => {
       console.error('Chats listener error:', error);
@@ -81,34 +85,62 @@ function setupEventListeners() {
   // Chat selection
   chatsList.addEventListener('click', (e) => {
     const chatItem = e.target.closest('.chat-tile');
-    if (chatItem) {
-      selectChat(chatItem.dataset.chatId);
-    }
+    if (chatItem) selectChat(chatItem.dataset.chatId);
   });
 
   // Message sending
   messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && messageInput.value.trim()) {
-      sendMessage();
-    }
+    if (e.key === 'Enter' && messageInput.value.trim()) sendMessage();
   });
 
   // AI toggle
-  aiToggleBtn.addEventListener('click', toggleAI);
+  aiToggleBtn?.addEventListener('click', toggleAI);
 
-  // Settings button
-  document.getElementById('settings-btn').addEventListener('click', openSettings);
-  document.querySelector('#settings-modal .close-modal').addEventListener('click', closeSettings);
+  // Settings
+  document.getElementById('settings-btn')?.addEventListener('click', openSettings);
+  document.querySelector('#settings-modal .close-modal')?.addEventListener('click', closeSettings);
 
-  // Contact info button
-  document.getElementById('contact-info-btn').addEventListener('click', openContactInfo);
-  document.querySelector('#contact-info-modal .close-modal').addEventListener('click', closeContactInfo);
+  // Contact info
+  document.getElementById('contact-info-btn')?.addEventListener('click', openContactInfo);
+  document.querySelector('#contact-info-modal .close-modal')?.addEventListener('click', closeContactInfo);
 
-  // Other navigation buttons
-  document.getElementById('logout-btn').addEventListener('click', () => auth.signOut());
+  // Logout
+  document.getElementById('logout-btn')?.addEventListener('click', () => auth.signOut());
+
+  // Close modals when clicking outside
+  window.addEventListener('click', (e) => {
+    if (e.target === settingsModal) closeSettings();
+    if (e.target === contactInfoModal) closeContactInfo();
+    if (e.target === emojiPicker) emojiPicker.style.display = 'none';
+  });
 }
 
-// Select a chat and load its messages
+// Initialize emoji picker
+function initEmojiPicker() {
+  if (!emojiBtn || !emojiPicker) return;
+
+  const emojis = ['😀', '😊', '😂', '❤️', '👍', '👎', '🔥', '🎉', '🤔', '😢'];
+  emojiPicker.innerHTML = `
+    <div class="emoji-picker-header">Select Emoji</div>
+    <div class="emoji-container">
+      ${emojis.map(emoji => `<span class="emoji-option">${emoji}</span>`).join('')}
+    </div>
+  `;
+
+  emojiBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+  });
+
+  emojiPicker.addEventListener('click', (e) => {
+    if (e.target.classList.contains('emoji-option')) {
+      messageInput.value += e.target.textContent;
+      emojiPicker.style.display = 'none';
+    }
+  });
+}
+
+// Chat selection and message loading
 function selectChat(chatId) {
   selectedChat = chatId;
   const chat = chats.find(c => c.id === chatId);
@@ -149,14 +181,10 @@ function selectChat(chatId) {
     });
 }
 
-// Render chats list
+// Render functions
 function renderChatsList() {
-  if (chats.length === 0) {
-    chatsList.innerHTML = '<div class="empty-state"><p>No conversations yet</p></div>';
-    return;
-  }
-
-  chatsList.innerHTML = '';
+  chatsList.innerHTML = chats.length ? '' : '<div class="empty-state"><p>No conversations yet</p></div>';
+  
   chats.forEach(chat => {
     const lastMessage = chat.lastMessage || 'No messages yet';
     const lastUpdated = formatTime(chat.lastUpdated);
@@ -165,8 +193,6 @@ function renderChatsList() {
     const chatItem = document.createElement('div');
     chatItem.className = `chat-tile ${selectedChat === chat.id ? 'active' : ''}`;
     chatItem.dataset.chatId = chat.id;
-    chatItem.dataset.chatName = chat.name || '';
-    
     chatItem.innerHTML = `
       <img src="${chat.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
       <div class="chat-tile-details">
@@ -187,7 +213,6 @@ function renderChatsList() {
   });
 }
 
-// Render messages in chat window
 function renderMessages() {
   if (messages.length === 0) {
     chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this chat</p></div>';
@@ -198,64 +223,64 @@ function renderMessages() {
   let currentDate = null;
 
   messages.forEach(msg => {
-    // Add date separator if needed
     const messageDate = formatDate(msg.timestamp);
     if (messageDate !== currentDate) {
       currentDate = messageDate;
-      const dateElement = document.createElement('div');
-      dateElement.className = 'datestamp-container';
-      dateElement.innerHTML = `<span class="datestamp">${currentDate}</span>`;
-      chatWindowContents.appendChild(dateElement);
+      chatWindowContents.innerHTML += `
+        <div class="datestamp-container">
+          <span class="datestamp">${currentDate}</span>
+        </div>
+      `;
     }
 
-    // Create message element
     const isCurrentUser = msg.senderId === currentUser.uid;
     const isAIResponse = msg.isAIResponse || false;
     const isUnresponded = msg.isUnresponded || false;
     
-    const messageElement = document.createElement('div');
-    messageElement.className = `chat-message-group ${isCurrentUser ? 'current-user' : ''}`;
-    
-    // Handle interactive messages (buttons)
-    let messageContent = msg.text;
-    if (msg.type === 'interactive') {
-      messageContent = renderInteractiveMessage(msg);
-    }
-    
-    messageElement.innerHTML = `
-      ${!isCurrentUser ? `
-        <img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">
-      ` : ''}
-      <div class="chat-messages">
-        <div class="chat-message-container">
-          <div class="chat-message chat-message-first">
-            ${!isCurrentUser ? `
-              <div class="chat-message-sender">
-                ${msg.senderName || 'Unknown'}
-                ${isAIResponse ? '<span class="ai-tag">AI</span>' : ''}
-              </div>
-            ` : ''}
-            ${messageContent}
-            ${isUnresponded ? '<span class="unresponded-tag">!</span>' : ''}
-            <span class="chat-message-time">${formatTime(msg.timestamp)}</span>
+    chatWindowContents.innerHTML += `
+      <div class="chat-message-group ${isCurrentUser ? 'current-user' : ''}">
+        ${!isCurrentUser ? `
+          <img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">
+        ` : ''}
+        <div class="chat-messages">
+          <div class="chat-message-container">
+            <div class="chat-message chat-message-first">
+              ${!isCurrentUser ? `
+                <div class="chat-message-sender">
+                  ${msg.senderName || 'Unknown'}
+                  ${isAIResponse ? '<span class="ai-tag">AI</span>' : ''}
+                </div>
+              ` : ''}
+              ${msg.type === 'interactive' ? renderInteractiveMessage(msg) : msg.text}
+              ${isUnresponded ? '<span class="unresponded-tag">!</span>' : ''}
+              <span class="chat-message-time">${formatTime(msg.timestamp)}</span>
+            </div>
+            ${msg.reactions ? renderReactions(msg.reactions) : ''}
           </div>
-          ${msg.reactions ? renderReactions(msg.reactions) : ''}
         </div>
+        ${isCurrentUser ? `
+          <div class="message-actions">
+            <div class="reaction-button">+</div>
+          </div>
+        ` : ''}
       </div>
-      ${isCurrentUser ? `
-        <div class="message-actions">
-          <div class="reaction-button">+</div>
-        </div>
-      ` : ''}
     `;
-    chatWindowContents.appendChild(messageElement);
   });
 
-  // Scroll to bottom
+  // Add event listeners for interactive messages
+  document.querySelectorAll('.interactive-button').forEach(button => {
+    button.addEventListener('click', (e) => {
+      const buttonId = e.target.dataset.id;
+      e.target.classList.add('selected');
+      e.target.innerHTML += ' ✓';
+      console.log('Button selected:', buttonId);
+      // Add your button response handling here
+    });
+  });
+
   chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
 }
 
-// Render interactive message (buttons)
 function renderInteractiveMessage(msg) {
   if (!msg.interactive) return msg.text;
   
@@ -271,11 +296,9 @@ function renderInteractiveMessage(msg) {
       </div>
     `;
   }
-  
   return msg.text;
 }
 
-// Render message reactions
 function renderReactions(reactions) {
   return `
     <div class="message-reactions">
@@ -286,7 +309,7 @@ function renderReactions(reactions) {
   `;
 }
 
-// Send a new message
+// Message handling
 function sendMessage() {
   if (!selectedChat || !messageInput.value.trim()) return;
 
@@ -301,13 +324,11 @@ function sendMessage() {
     isAIResponse: aiEnabled
   };
 
-  // Add to Firestore
   db.collection('chats')
     .doc(selectedChat)
     .collection('messages')
     .add(newMessage)
     .then(() => {
-      // Update last message in chat document
       db.collection('chats')
         .doc(selectedChat)
         .update({
@@ -320,29 +341,24 @@ function sendMessage() {
   messageInput.value = '';
 }
 
-// Toggle AI mode
+// AI toggle
 function toggleAI() {
   if (!selectedChat) return;
-  
   aiEnabled = !aiEnabled;
   updateAIToggleButton();
-  
-  // Update in Firestore
   db.collection('chats')
     .doc(selectedChat)
-    .update({
-      aiEnabled: aiEnabled
-    });
+    .update({ aiEnabled: aiEnabled });
 }
 
 function updateAIToggleButton() {
+  if (!aiToggleBtn) return;
   aiToggleBtn.classList.toggle('ai-toggle-on', aiEnabled);
   aiToggleBtn.classList.toggle('ai-toggle-off', !aiEnabled);
 }
 
 // Modal functions
 function openSettings() {
-  // Load user stats
   loadUserStats();
   settingsModal.style.display = 'block';
 }
@@ -353,8 +369,6 @@ function closeSettings() {
 
 function openContactInfo() {
   if (!selectedChat) return;
-  
-  // Load contact stats
   loadContactStats();
   contactInfoModal.style.display = 'block';
 }
@@ -363,20 +377,19 @@ function closeContactInfo() {
   contactInfoModal.style.display = 'none';
 }
 
-// Load user statistics
 function loadUserStats() {
-  // In a real app, you would fetch these from Firestore
+  if (!currentUser) return;
   document.getElementById('settings-username').textContent = currentUser.displayName || 'User';
   document.getElementById('settings-userphone').textContent = currentUser.phoneNumber || 'No phone number';
+  
+  // Simulate loading stats
   document.getElementById('response-rate-value').textContent = '85%';
   document.getElementById('response-rate-bar').style.width = '85%';
   document.getElementById('avg-response-time').textContent = '2.5 min';
 }
 
-// Load contact statistics
 function loadContactStats() {
   if (!selectedChat) return;
-  
   const chat = chats.find(c => c.id === selectedChat);
   if (chat) {
     document.getElementById('contact-name').textContent = chat.name || 'Contact';
@@ -386,33 +399,26 @@ function loadContactStats() {
   }
 }
 
-// Update connection status UI
+// Helper functions
 function updateConnectionStatus(connected) {
   const notification = document.getElementById('connectivity-notification');
-  if (connected) {
-    notification.style.display = 'none';
-    connectionStatus.textContent = 'Connected to chats';
-  } else {
-    notification.style.display = 'flex';
-    connectionStatus.textContent = 'Connection lost. Reconnecting...';
+  if (notification) {
+    notification.style.display = connected ? 'none' : 'flex';
+    connectionStatus.textContent = connected ? 'Connected to chats' : 'Connection lost. Reconnecting...';
   }
 }
 
-// Helper functions
 function formatDate(date) {
-  if (!date) return '';
-  return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  return date?.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) || '';
 }
 
 function formatTime(date) {
-  if (!date) return '';
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
 }
 
 function truncate(text, maxLength) {
-  if (!text) return '';
-  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  return text?.length > maxLength ? text.substring(0, maxLength) + '...' : text || '';
 }
 
-// Initialize the app when DOM is loaded
+// Initialize the app
 document.addEventListener('DOMContentLoaded', initApp);
