@@ -2,114 +2,191 @@
 <html lang="en">
 
 <head>
-	<meta charset="UTF-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>WhatsApp</title>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp</title>
 
-	<!-- Firebase SDK -->
-	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
 
-	<link rel="stylesheet" href="styles/core.css">
-	<link rel="stylesheet" href="styles/style.css">
-	<link rel="stylesheet" href="styles/sidebar.css">
-	<link rel="stylesheet" href="styles/chat-window.css">
-	<link rel="stylesheet" href="styles/chat-tile.css">
-	<link rel="stylesheet" href="styles/chat-message.css">
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+  <link rel="stylesheet" href="styles/core.css">
+  <link rel="stylesheet" href="styles/style.css">
+  <link rel="stylesheet" href="styles/sidebar.css">
+  <link rel="stylesheet" href="styles/chat-window.css">
+  <link rel="stylesheet" href="styles/chat-tile.css">
+  <link rel="stylesheet" href="styles/chat-message.css">
+  <link rel="stylesheet" href="styles/settings.css">
 </head>
 
 <body>
-	<main>
+  <main>
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <header id="sidebar-header">
+        <img src="https://picsum.photos/id/10/50" alt="Profile" class="avatar" id="profile-image">
+        <div class="toolbar">
+          <img src="icons/communities.svg" alt="Communities" class="icon">
+          <img src="icons/status.svg" alt="Status" class="icon">
+          <img src="icons/new-chat.svg" alt="New Chat" class="icon">
+          <div class="dropdown">
+            <img src="icons/menu.svg" alt="Menu" class="icon dropdown-button">
+            <div class="dropdown-content">
+              <a href="#" id="new-group-btn"><i class="fas fa-users"></i> New group</a>
+              <a href="#" id="new-community-btn"><i class="fas fa-comment-dots"></i> New community</a>
+              <a href="#" id="archived-chats-btn"><i class="fas fa-archive"></i> Archived</a>
+              <a href="#" id="starred-messages-btn"><i class="fas fa-star"></i> Starred messages</a>
+              <a href="#" id="settings-btn"><i class="fas fa-cog"></i> Settings</a>
+              <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Log out</a>
+            </div>
+          </div>
+        </div>
+      </header>
+      <form id="search-toolbar">
+        <input type="search" id="search-input" placeholder="Search or start a new chat">
+        <img src="icons/filter.svg" alt="Filter" class="icon">
+      </form>
+      <div class="connectivity-notification" id="connectivity-notification">
+        <img src="icons/warning.svg" alt="Offline warning">
+        <div>
+          <div class="connectivity-notification-title">
+            Connecting to chats...
+          </div>
+          <span id="connection-status">
+            Loading conversations
+          </span>
+        </div>
+      </div>
+      <section id="sidebar-contents">
+        <div id="chats-list">
+          <div class="empty-state">
+            <p>Loading conversations...</p>
+          </div>
+        </div>
+      </section>
+    </aside>
 
-		<!-- Sidebar -->
-		<aside id="sidebar">
-			<header id="sidebar-header">
-				<img src="https://picsum.photos/id/10/50" alt="" class="avatar" id="profile-image">
-				<div class="toolbar">
-					<img src="icons/communities.svg" alt="" class="icon">
-					<img src="icons/status.svg" alt="" class="icon">
-					<img src="icons/new-chat.svg" alt="" class="icon">
-					<div class="dropdown">
-						<img src="icons/menu.svg" alt="" class="icon dropdown-button">
-						<div class="dropdown-content">
-							<a href="#">New group</a>
-							<a href="#">New community</a>
-							<a href="#">Archived</a>
-							<a href="#">Starred messages</a>
-							<a href="#">Select chats</a>
-							<a href="#">Settings</a>
-							<a href="#">Log out</a>
-						</div>
-					</div>
-				</div>
-			</header>
-			<form id="search-toolbar">
-				<input type="search" name="" id="search-input" placeholder="Search or start a new chat">
-				<img src="icons/filter.svg" alt="" class="icon">
-			</form>
-			<div class="connectivity-notification">
-				<img src="icons/warning.svg" alt="Offline warning">
-				<div>
-					<div class="connectivity-notification-title">
-						Connecting to chats...
-					</div>
-					<span id="connection-status">
-						Loading conversations
-					</span>
-				</div>
-			</div>
-			<section id="sidebar-contents">
-				<div id="chats-list">
-					<div class="empty-state">
-						<p>Loading conversations...</p>
-					</div>
-				</div>
-			</section>
-		</aside>
+    <!-- Chat window -->
+    <section id="chat-window">
+      <header id="chat-window-header">
+        <div id="active-chat-info">
+          <img src="https://picsum.photos/id/103/50" alt="Chat avatar" class="avatar" id="chat-profile-image">
+          <div id="active-chat-details">
+            <h3 id="chat-title">Select a chat</h3>
+            <div class="info" id="chat-subtitle">No chat selected</div>
+          </div>
+        </div>
+        <div class="chat-actions">
+          <img src="icons/search.svg" alt="Search" class="icon" id="search-chat-btn">
+          <div class="dropdown">
+            <img src="icons/menu.svg" alt="Menu" class="icon dropdown-button">
+            <div class="dropdown-content chat-menu">
+              <a href="#" id="contact-info-btn"><i class="fas fa-user"></i> Contact info</a>
+              <a href="#" id="mute-chat-btn"><i class="fas fa-bell-slash"></i> Mute notifications</a>
+              <a href="#" id="disappearing-msgs-btn"><i class="fas fa-clock"></i> Disappearing messages</a>
+              <a href="#" id="clear-chat-btn"><i class="fas fa-trash"></i> Clear messages</a>
+              <a href="#" id="report-chat-btn"><i class="fas fa-flag"></i> Report</a>
+            </div>
+          </div>
+        </div>
+      </header>
+      <div id="chat-window-contents">
+        <div class="empty-state">
+          <p>Select a conversation to view messages</p>
+        </div>
+      </div>
+      <footer id="chat-window-footer" style="display: none;">
+        <div class="message-input-container">
+          <img src="icons/emoji.svg" alt="Emoji" class="icon" id="emoji-btn">
+          <img src="icons/attachment.svg" alt="Attach" class="icon" id="attachment-btn">
+          <input type="text" id="message-input" placeholder="Type a message" autocomplete="off">
+          <button id="ai-toggle-btn" class="ai-toggle-off">
+            <i class="fas fa-robot"></i>
+          </button>
+          <img src="icons/mic.svg" alt="Mic" class="icon" id="mic-btn">
+        </div>
+      </footer>
+    </section>
 
-		<!-- Chat window -->
-		<section id="chat-window">
-			<header id="chat-window-header">
-				<img src="https://picsum.photos/id/103/50" alt="" class="avatar" id="chat-profile-image">
-				<div id="active-chat-details">
-					<h3 id="chat-title">Select a chat</h3>
-					<div class="info" id="chat-subtitle">No chat selected</div>
-				</div>
-				<img src="icons/search.svg" alt="" class="icon">
-				<div class="dropdown">
-					<img src="icons/menu.svg" alt="" class="icon dropdown-button">
-					<div class="dropdown-content contact-menu">
-						<a href="#">Contact info</a>
-						<a href="#">Select messages</a>
-						<a href="#">Close chat</a>
-						<a href="#">Mute notifications</a>
-						<a href="#">Disappearing messages</a>
-						<a href="#">Clear messages</a>
-						<a href="#">Delete chat</a>
-						<a href="#">Report</a>
-						<a href="#">Block</a>
-					</div>
-				</div>
-			</header>
-			<div id="chat-window-contents">
-				<div class="empty-state">
-					<p>Select a conversation to view messages</p>
-				</div>
-			</div>
-			<footer id="chat-window-footer" style="display: none;">
-				<img src="icons/emoji.svg" alt="" class="icon">
-				<img src="icons/attachment.svg" alt="" class="icon">
-				<input type="search" name="message" id="message-input" placeholder="Type a message" autocomplete="off" disabled>
-				<img src="icons/mic.svg" alt="" class="icon">
-			</footer>
-			<a class="scroll-to-top-button" href="#"><img src="icons/arrow-down.svg" alt=""
-					class="icon scroll-to-top-button-icon" height=""></a>
-		</section>
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="settings-section">
+            <h3>User Profile</h3>
+            <div class="profile-info">
+              <img src="https://picsum.photos/id/10/100" alt="Profile" class="profile-image">
+              <div>
+                <h4 id="settings-username">User Name</h4>
+                <p id="settings-userphone">+1234567890</p>
+              </div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Analytics</h3>
+            <div class="analytics-stats">
+              <div class="stat-item">
+                <span>Response Rate</span>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="response-rate-bar"></div>
+                </div>
+                <span id="response-rate-value">75%</span>
+              </div>
+              <div class="stat-item">
+                <span>Avg Response Time</span>
+                <div class="time-value" id="avg-response-time">2.5 min</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-	</main>
+    <!-- Contact Info Modal -->
+    <div id="contact-info-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Contact Info</h2>
+          <span class="close-modal">&times;</span>
+        </div>
+        <div class="modal-body">
+          <div class="contact-header">
+            <img src="https://picsum.photos/id/103/100" alt="Contact" class="contact-image">
+            <h3 id="contact-name">Contact Name</h3>
+            <p id="contact-phone">+1234567890</p>
+          </div>
+          <div class="contact-stats">
+            <div class="stat-item">
+              <span>Messages Sent</span>
+              <span id="messages-sent">120</span>
+            </div>
+            <div class="stat-item">
+              <span>Response Rate</span>
+              <span id="contact-response-rate">85%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
 
-	<script src="app.js"></script>
+  <!-- Emoji Picker -->
+  <div id="emoji-picker" class="emoji-picker-container"></div>
+
+  <script src="app.js"></script>
+  <script src="scripts/message-handler.js"></script>
+  <script src="scripts/interactive-messages.js"></script>
+  <script src="scripts/settings.js"></script>
+  <script src="scripts/emoji-picker.js"></script>
 </body>
 
 </html>
