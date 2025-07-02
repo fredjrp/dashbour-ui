@@ -1,17 +1,18 @@
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
-  authDomain: "housingfreeop.firebaseapp.com",
-  databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
-  projectId: "housingfreeop",
-  storageBucket: "housingfreeop.appspot.com",
-  messagingSenderId: "369472820914",
-  appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
-  measurementId: "G-E6H9E9DLCP"
-};
+// Check if Firebase app already exists before initializing
+if (!firebase.apps.length) {
+  const firebaseConfig = {
+    apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
+    authDomain: "housingfreeop.firebaseapp.com",
+    databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
+    projectId: "housingfreeop",
+    storageBucket: "housingfreeop.appspot.com",
+    messagingSenderId: "369472820914",
+    appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
+    measurementId: "G-E6H9E9DLCP"
+  };
+  firebase.initializeApp(firebaseConfig);
+}
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
@@ -39,6 +40,21 @@ let unsubscribeChats = null;
 let unsubscribeMessages = null;
 let aiEnabled = false;
 
+// Helper function to safely convert timestamps
+function safeConvertTimestamp(timestamp) {
+  if (!timestamp) return new Date();
+  if (typeof timestamp.toDate === 'function') {
+    return timestamp.toDate();
+  }
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp);
+  }
+  if (typeof timestamp === 'string') {
+    return new Date(timestamp);
+  }
+  return timestamp; // if it's already a Date object
+}
+
 // Initialize the app
 function initApp() {
   auth.onAuthStateChanged(user => {
@@ -56,10 +72,8 @@ function initApp() {
 
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-  // For Firestore index error, either create the index or use simpler query:
   unsubscribeChats = db.collection('chats')
     .where('participants', 'array-contains', currentUser.uid)
-    // .orderBy('lastUpdated', 'desc') // Remove if index not created
     .onSnapshot(snapshot => {
       chats = [];
       snapshot.forEach(doc => {
@@ -67,11 +81,11 @@ function setupRealTimeListeners() {
         chats.push({
           id: doc.id,
           ...chat,
-          lastUpdated: chat.lastUpdated?.toDate(),
+          lastUpdated: safeConvertTimestamp(chat.lastUpdated),
           aiEnabled: chat.aiEnabled || false
         });
       });
-      // Sort locally if not using orderBy
+      // Sort locally by lastUpdated
       chats.sort((a, b) => b.lastUpdated - a.lastUpdated);
       renderChatsList();
     }, error => {
@@ -174,14 +188,16 @@ function selectChat(chatId) {
         messages.push({
           id: doc.id,
           ...message,
-          timestamp: message.timestamp?.toDate()
+          timestamp: safeConvertTimestamp(message.timestamp)
         });
       });
       renderMessages();
+    }, error => {
+      console.error('Messages listener error:', error);
     });
 }
 
-// Render functions
+// Render chats list
 function renderChatsList() {
   chatsList.innerHTML = chats.length ? '' : '<div class="empty-state"><p>No conversations yet</p></div>';
   
@@ -213,6 +229,7 @@ function renderChatsList() {
   });
 }
 
+// Render messages in chat window
 function renderMessages() {
   if (messages.length === 0) {
     chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this chat</p></div>';
@@ -273,14 +290,25 @@ function renderMessages() {
       const buttonId = e.target.dataset.id;
       e.target.classList.add('selected');
       e.target.innerHTML += ' ✓';
-      console.log('Button selected:', buttonId);
-      // Add your button response handling here
+      
+      // Send the button response
+      if (selectedChat) {
+        const db = firebase.firestore();
+        db.collection('chats').doc(selectedChat).collection('messages').add({
+          text: `Selected: ${e.target.textContent.replace(' ✓', '')}`,
+          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+          senderId: currentUser.uid,
+          isButtonResponse: true,
+          buttonId: buttonId
+        });
+      }
     });
   });
 
   chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
 }
 
+// Render interactive message (buttons)
 function renderInteractiveMessage(msg) {
   if (!msg.interactive) return msg.text;
   
@@ -299,6 +327,7 @@ function renderInteractiveMessage(msg) {
   return msg.text;
 }
 
+// Render message reactions
 function renderReactions(reactions) {
   return `
     <div class="message-reactions">
@@ -309,7 +338,7 @@ function renderReactions(reactions) {
   `;
 }
 
-// Message handling
+// Send a new message
 function sendMessage() {
   if (!selectedChat || !messageInput.value.trim()) return;
 
@@ -324,11 +353,13 @@ function sendMessage() {
     isAIResponse: aiEnabled
   };
 
+  // Add to Firestore
   db.collection('chats')
     .doc(selectedChat)
     .collection('messages')
     .add(newMessage)
     .then(() => {
+      // Update last message in chat document
       db.collection('chats')
         .doc(selectedChat)
         .update({
@@ -341,14 +372,19 @@ function sendMessage() {
   messageInput.value = '';
 }
 
-// AI toggle
+// Toggle AI mode
 function toggleAI() {
   if (!selectedChat) return;
+  
   aiEnabled = !aiEnabled;
   updateAIToggleButton();
+  
+  // Update in Firestore
   db.collection('chats')
     .doc(selectedChat)
-    .update({ aiEnabled: aiEnabled });
+    .update({
+      aiEnabled: aiEnabled
+    });
 }
 
 function updateAIToggleButton() {
@@ -377,6 +413,7 @@ function closeContactInfo() {
   contactInfoModal.style.display = 'none';
 }
 
+// Load user statistics
 function loadUserStats() {
   if (!currentUser) return;
   document.getElementById('settings-username').textContent = currentUser.displayName || 'User';
@@ -388,6 +425,7 @@ function loadUserStats() {
   document.getElementById('avg-response-time').textContent = '2.5 min';
 }
 
+// Load contact statistics
 function loadContactStats() {
   if (!selectedChat) return;
   const chat = chats.find(c => c.id === selectedChat);
@@ -399,7 +437,7 @@ function loadContactStats() {
   }
 }
 
-// Helper functions
+// Update connection status UI
 function updateConnectionStatus(connected) {
   const notification = document.getElementById('connectivity-notification');
   if (notification) {
@@ -408,6 +446,7 @@ function updateConnectionStatus(connected) {
   }
 }
 
+// Helper functions
 function formatDate(date) {
   return date?.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) || '';
 }
