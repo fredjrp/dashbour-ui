@@ -10,66 +10,56 @@ const firebaseConfig = {
   measurementId: "G-E6H9E9DLCP"
 };
 
-// Initialize Firebase
+// Initialize Firebase without authentication
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-const auth = firebase.auth();
 
-// DOM Elements
+// DOM elements
 const chatsList = document.getElementById('chats-list');
 const chatWindowContents = document.getElementById('chat-window-contents');
 const messageInput = document.getElementById('message-input');
 const chatTitle = document.getElementById('chat-title');
 const chatSubtitle = document.getElementById('chat-subtitle');
 const chatWindowFooter = document.getElementById('chat-window-footer');
-const connectivityNotification = document.getElementById('connectivity-notification');
 const connectionStatus = document.getElementById('connection-status');
-const logoutBtn = document.getElementById('logout-btn');
 const searchInput = document.getElementById('search-input');
 
 // State variables
-let currentUser = null;
-let selectedChat = null;
-let chats = [];
-let messages = [];
-let unsubscribeChats = null;
+let selectedConversation = null;
+let conversations = [];
+let messages = {};
+let unsubscribeConversations = null;
 let unsubscribeMessages = null;
 
 // Initialize the app
 function initApp() {
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      currentUser = user;
-      document.getElementById('profile-image').src = user.photoURL || 'https://picsum.photos/id/10/50';
-      setupRealTimeListeners();
-      setupEventListeners();
-    } else {
-      // User not logged in, redirect to login
-      window.location.href = 'login.html';
-    }
-  });
+  setupRealTimeListeners();
+  setupEventListeners();
 }
 
-// Set up real-time listeners
+// Set up real-time Firestore listeners (matches your existing structure)
 function setupRealTimeListeners() {
-  // Listen for chats where current user is a participant
-  unsubscribeChats = db.collection('chats')
-    .where('participants', 'array-contains', currentUser.uid)
-    .orderBy('lastUpdated', 'desc')
+  // Listen to users collection as in your original code
+  unsubscribeConversations = db.collection('users')
+    .orderBy('lastActive', 'desc')
+    .limit(100)
     .onSnapshot(snapshot => {
-      chats = [];
+      conversations = [];
       snapshot.forEach(doc => {
-        const chat = doc.data();
-        chats.push({
+        const data = doc.data();
+        conversations.push({
           id: doc.id,
-          ...chat,
-          lastUpdated: chat.lastUpdated?.toDate()
+          ...data,
+          lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now()),
+          assignedAgent: data.assignedAgent || null,
+          status: data.status || 'active',
+          aiEnabled: data.aiEnabled !== false
         });
       });
-      renderChatsList();
+      renderConversations();
       updateConnectionStatus(true);
     }, error => {
-      console.error('Chats listener error:', error);
+      console.error('Conversations listener error:', error);
       updateConnectionStatus(false);
     });
 }
@@ -80,20 +70,8 @@ function setupEventListeners() {
   chatsList.addEventListener('click', (e) => {
     const chatItem = e.target.closest('.chat-tile');
     if (chatItem) {
-      selectChat(chatItem.dataset.chatId);
+      selectConversation(chatItem.dataset.phone);
     }
-  });
-
-  // Message sending
-  messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && messageInput.value.trim()) {
-      sendMessage();
-    }
-  });
-
-  // Logout
-  logoutBtn.addEventListener('click', () => {
-    auth.signOut();
   });
 
   // Search functionality
@@ -101,76 +79,87 @@ function setupEventListeners() {
     const searchTerm = e.target.value.toLowerCase();
     document.querySelectorAll('.chat-tile').forEach(chat => {
       const matches = chat.dataset.chatName.toLowerCase().includes(searchTerm) || 
-                     chat.dataset.lastMessage?.toLowerCase().includes(searchTerm);
+                     chat.querySelector('.chat-tile-subtitle span').textContent.toLowerCase().includes(searchTerm);
       chat.style.display = matches ? 'flex' : 'none';
     });
   });
 }
 
-// Select a chat and load its messages
-function selectChat(chatId) {
-  selectedChat = chatId;
-  const chat = chats.find(c => c.id === chatId);
+// Select conversation and load messages (matches your original structure)
+function selectConversation(phoneNumber) {
+  selectedConversation = phoneNumber;
   
-  // Update UI
   document.querySelectorAll('.chat-tile').forEach(item => {
-    item.classList.toggle('active', item.dataset.chatId === chatId);
+    item.classList.toggle('active', item.dataset.phone === phoneNumber);
   });
   
-  if (chat) {
-    chatTitle.textContent = chat.name || 'Group Chat';
-    chatSubtitle.textContent = `${chat.participants.length} participants`;
-    document.getElementById('chat-profile-image').src = chat.photoURL || 'https://picsum.photos/id/103/50';
+  const conversation = conversations.find(c => c.id === phoneNumber);
+  if (conversation) {
+    chatTitle.textContent = conversation.profileName || 'Unknown';
+    chatSubtitle.textContent = `You and 69 others`; // Default as in your design
+    document.getElementById('chat-profile-image').src = conversation.photoURL || 'https://picsum.photos/id/103/50';
     chatWindowFooter.style.display = 'flex';
   }
   
-  // Clear previous messages and unsubscribe
   chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
   if (unsubscribeMessages) unsubscribeMessages();
   
-  // Load messages for this chat
-  unsubscribeMessages = db.collection('chats')
-    .doc(chatId)
-    .collection('messages')
+  // Load messages from whatsapp_logs as in your original code
+  unsubscribeMessages = db.collection('whatsapp_logs')
+    .where('from', '==', phoneNumber)
     .orderBy('timestamp', 'asc')
     .onSnapshot(snapshot => {
-      messages = [];
+      messages[phoneNumber] = [];
       snapshot.forEach(doc => {
-        const message = doc.data();
-        messages.push({
+        const data = doc.data();
+        messages[phoneNumber].push({
           id: doc.id,
-          ...message,
-          timestamp: message.timestamp?.toDate()
+          ...data,
+          direction: 'incoming',
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
         });
       });
-      renderMessages();
+      
+      // Also get outgoing messages as in your original code
+      db.collection('whatsapp_logs')
+        .where('to', '==', phoneNumber)
+        .get()
+        .then(outgoingSnapshot => {
+          outgoingSnapshot.forEach(doc => {
+            const data = doc.data();
+            messages[phoneNumber].push({
+              id: doc.id,
+              ...data,
+              direction: 'outgoing',
+              timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+            });
+          });
+          
+          messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+          renderMessages(phoneNumber);
+        });
     });
 }
 
-// Render chats list
-function renderChatsList() {
-  if (chats.length === 0) {
-    chatsList.innerHTML = '<div class="empty-state"><p>No conversations yet</p></div>';
-    return;
-  }
-
-  chatsList.innerHTML = '';
-  chats.forEach(chat => {
-    const lastMessage = chat.lastMessage || 'No messages yet';
-    const lastUpdated = formatTime(chat.lastUpdated);
+// Render conversations list (matches your original design)
+function renderConversations() {
+  chatsList.innerHTML = conversations.length ? '' : 
+    '<div class="empty-state"><p>No conversations found</p></div>';
+  
+  conversations.forEach(conversation => {
+    const lastMessage = conversation.lastMessage || 'No messages yet';
+    const lastActiveTime = formatTime(conversation.lastActive);
     
     const chatItem = document.createElement('div');
-    chatItem.className = `chat-tile ${selectedChat === chat.id ? 'active' : ''}`;
-    chatItem.dataset.chatId = chat.id;
-    chatItem.dataset.chatName = chat.name || '';
-    chatItem.dataset.lastMessage = lastMessage;
-    
+    chatItem.className = `chat-tile ${selectedConversation === conversation.id ? 'active' : ''}`;
+    chatItem.dataset.phone = conversation.id;
+    chatItem.dataset.chatName = conversation.profileName || '';
     chatItem.innerHTML = `
-      <img src="${chat.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
+      <img src="${conversation.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
       <div class="chat-tile-details">
         <div class="chat-tile-title">
-          <span>${chat.name || 'New Chat'}</span>
-          <span>${lastUpdated}</span>
+          <span>${conversation.profileName || conversation.id}</span>
+          <span>${lastActiveTime}</span>
         </div>
         <div class="chat-tile-subtitle">
           <span>${truncate(lastMessage, 30)}</span>
@@ -184,17 +173,17 @@ function renderChatsList() {
   });
 }
 
-// Render messages in chat window
-function renderMessages() {
-  if (messages.length === 0) {
-    chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this chat</p></div>';
+// Render messages (matches your original design)
+function renderMessages(phoneNumber) {
+  if (!messages[phoneNumber]?.length) {
+    chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
     return;
   }
 
   chatWindowContents.innerHTML = '';
   let currentDate = null;
 
-  messages.forEach(msg => {
+  messages[phoneNumber].forEach(msg => {
     // Add date separator if needed
     const messageDate = formatDate(msg.timestamp);
     if (messageDate !== currentDate) {
@@ -205,72 +194,42 @@ function renderMessages() {
       chatWindowContents.appendChild(dateElement);
     }
 
-    // Create message element
-    const isCurrentUser = msg.senderId === currentUser.uid;
-    const messageElement = document.createElement('div');
-    messageElement.className = `chat-message-group ${isCurrentUser ? 'current-user' : ''}`;
+    const isOutgoing = msg.direction === 'outgoing';
+    const messageTime = formatTime(msg.timestamp);
+    let messageContent = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Message]';
+
+    // Message group container
+    const messageGroup = document.createElement('div');
+    messageGroup.className = `chat-message-group ${isOutgoing ? 'outgoing' : ''}`;
     
-    messageElement.innerHTML = `
-      ${!isCurrentUser ? `<img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">` : ''}
+    messageGroup.innerHTML = `
+      ${!isOutgoing ? `<img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">` : ''}
       <div class="chat-messages">
         <div class="chat-message-container">
           <div class="chat-message chat-message-first">
-            ${!isCurrentUser ? `<div class="chat-message-sender">${msg.senderName || 'Unknown'}</div>` : ''}
-            ${msg.text}
-            <span class="chat-message-time">${formatTime(msg.timestamp)}</span>
+            ${!isOutgoing ? `<div class="chat-message-sender">${msg.senderName || 'Unknown'}</div>` : ''}
+            ${messageContent}
+            <span class="chat-message-time">${messageTime}</span>
           </div>
+          ${isOutgoing ? `<div class="message-status">${msg.status || 'sent'}</div>` : ''}
         </div>
       </div>
     `;
-    chatWindowContents.appendChild(messageElement);
+    chatWindowContents.appendChild(messageGroup);
   });
 
   // Scroll to bottom
   chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
 }
 
-// Send a new message
-function sendMessage() {
-  if (!selectedChat || !messageInput.value.trim()) return;
-
-  const messageText = messageInput.value.trim();
-  const newMessage = {
-    text: messageText,
-    senderId: currentUser.uid,
-    senderName: currentUser.displayName || 'You',
-    senderPhotoURL: currentUser.photoURL,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    status: 'sent'
-  };
-
-  // Add to Firestore
-  db.collection('chats')
-    .doc(selectedChat)
-    .collection('messages')
-    .add(newMessage)
-    .then(() => {
-      // Update last message in chat document
-      db.collection('chats')
-        .doc(selectedChat)
-        .update({
-          lastMessage: messageText,
-          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    })
-    .catch(error => {
-      console.error('Error sending message:', error);
-    });
-
-  messageInput.value = '';
-}
-
 // Update connection status UI
 function updateConnectionStatus(connected) {
+  const notification = document.querySelector('.connectivity-notification');
   if (connected) {
-    connectivityNotification.style.display = 'none';
-    connectionStatus.textContent = 'Connected to Firebase';
+    notification.style.display = 'none';
+    connectionStatus.textContent = 'Connected to chats';
   } else {
-    connectivityNotification.style.display = 'flex';
+    notification.style.display = 'flex';
     connectionStatus.textContent = 'Connection lost. Reconnecting...';
   }
 }
