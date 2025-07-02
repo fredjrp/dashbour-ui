@@ -65,7 +65,7 @@ function initApp() {
       initEmojiPicker();
       updateConnectionStatus(true);
     } else {
-      window.location.href = 'login.html';
+      window.location.href = 'index.html';
     }
   });
 }
