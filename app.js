@@ -55,7 +55,6 @@ function safeConvertTimestamp(timestamp) {
   return timestamp; // if it's already a Date object
 }
 
-// Initialize the app
 function initApp() {
   auth.onAuthStateChanged(user => {
     if (user) {
@@ -65,10 +64,23 @@ function initApp() {
       initEmojiPicker();
       updateConnectionStatus(true);
     } else {
-      window.location.href = 'index.html';
+      // Attempt auto sign-in for development/testing
+      auth.signInWithEmailAndPassword("juniorokovagng@gmail.com", "mlnkbjvhcgxfzd")
+        .then(userCredential => {
+          currentUser = userCredential.user;
+          setupRealTimeListeners();
+          setupEventListeners();
+          initEmojiPicker();
+          updateConnectionStatus(true);
+        })
+        .catch(error => {
+          console.error("Auto-login failed:", error.message);
+          window.location.href = 'index.html'; // fallback
+        });
     }
   });
 }
+
 
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
