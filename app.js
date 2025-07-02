@@ -1,18 +1,19 @@
-// Check if Firebase app already exists before initializing
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
+  authDomain: "housingfreeop.firebaseapp.com",
+  databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
+  projectId: "housingfreeop",
+  storageBucket: "housingfreeop.appspot.com",
+  messagingSenderId: "369472820914",
+  appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
+  measurementId: "G-E6H9E9DLCP"
+};
+
+// Initialize Firebase
 if (!firebase.apps.length) {
-  const firebaseConfig = {
-    apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
-    authDomain: "housingfreeop.firebaseapp.com",
-    databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
-    projectId: "housingfreeop",
-    storageBucket: "housingfreeop.appspot.com",
-    messagingSenderId: "369472820914",
-    appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
-    measurementId: "G-E6H9E9DLCP"
-  };
   firebase.initializeApp(firebaseConfig);
 }
-
 const db = firebase.firestore();
 const auth = firebase.auth();
 
@@ -30,31 +31,29 @@ const settingsModal = document.getElementById('settings-modal');
 const contactInfoModal = document.getElementById('contact-info-modal');
 const emojiBtn = document.getElementById('emoji-btn');
 const emojiPicker = document.getElementById('emoji-picker');
+const transferBtn = document.getElementById('transfer-btn');
+const agentSelect = document.getElementById('agent-select');
+const userDetailsContent = document.getElementById('user-details-content');
+const userName = document.getElementById('user-name');
+const userPhone = document.getElementById('user-phone');
+const lastActive = document.getElementById('last-active');
+const businessType = document.getElementById('business-type');
+const userStatus = document.getElementById('user-status');
+const userNotes = document.getElementById('user-notes');
+const saveNotes = document.getElementById('save-notes');
 
 // State variables
 let currentUser = null;
-let selectedChat = null;
-let chats = [];
-let messages = [];
-let unsubscribeChats = null;
+let selectedConversation = null;
+let conversations = [];
+let messages = {};
+let agents = [];
+let unsubscribeConversations = null;
 let unsubscribeMessages = null;
+let unsubscribeAgents = null;
 let aiEnabled = false;
 
-// Helper function to safely convert timestamps
-function safeConvertTimestamp(timestamp) {
-  if (!timestamp) return new Date();
-  if (typeof timestamp.toDate === 'function') {
-    return timestamp.toDate();
-  }
-  if (typeof timestamp === 'number') {
-    return new Date(timestamp);
-  }
-  if (typeof timestamp === 'string') {
-    return new Date(timestamp);
-  }
-  return timestamp; // if it's already a Date object
-}
-
+// Initialize the app
 function initApp() {
   auth.onAuthStateChanged(user => {
     if (user) {
@@ -75,34 +74,49 @@ function initApp() {
         })
         .catch(error => {
           console.error("Auto-login failed:", error.message);
-          window.location.href = 'index.html'; // fallback
+          window.location.href = 'index.html';
         });
     }
   });
 }
 
-
 // Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-  unsubscribeChats = db.collection('chats')
-    .where('participants', 'array-contains', currentUser.uid)
+  // Listen to users collection for conversations
+  unsubscribeConversations = db.collection('users')
+    .orderBy('lastActive', 'desc')
+    .limit(100)
     .onSnapshot(snapshot => {
-      chats = [];
+      conversations = [];
       snapshot.forEach(doc => {
-        const chat = doc.data();
-        chats.push({
+        const data = doc.data();
+        conversations.push({
           id: doc.id,
-          ...chat,
-          lastUpdated: safeConvertTimestamp(chat.lastUpdated),
-          aiEnabled: chat.aiEnabled || false
+          ...data,
+          lastActive: data.lastActive?.toDate() || new Date(),
+          assignedAgent: data.assignedAgent || null,
+          status: data.status || 'active',
+          aiEnabled: data.aiEnabled !== false
         });
       });
-      // Sort locally by lastUpdated
-      chats.sort((a, b) => b.lastUpdated - a.lastUpdated);
-      renderChatsList();
+      renderConversations();
     }, error => {
-      console.error('Chats listener error:', error);
+      console.error('Conversations listener error:', error);
       updateConnectionStatus(false);
+    });
+
+  // Listen to active agents
+  unsubscribeAgents = db.collection('agents')
+    .where('active', '==', true)
+    .onSnapshot(snapshot => {
+      agents = [];
+      snapshot.forEach(doc => {
+        agents.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      renderAgentSelect();
     });
 }
 
@@ -111,13 +125,16 @@ function setupEventListeners() {
   // Chat selection
   chatsList.addEventListener('click', (e) => {
     const chatItem = e.target.closest('.chat-tile');
-    if (chatItem) selectChat(chatItem.dataset.chatId);
+    if (chatItem) selectConversation(chatItem.dataset.phone);
   });
 
   // Message sending
   messageInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter' && messageInput.value.trim()) sendMessage();
   });
+
+  // Search functionality
+  searchInput.addEventListener('input', applyFilters);
 
   // AI toggle
   aiToggleBtn?.addEventListener('click', toggleAI);
@@ -133,12 +150,322 @@ function setupEventListeners() {
   // Logout
   document.getElementById('logout-btn')?.addEventListener('click', () => auth.signOut());
 
+  // Agent transfer
+  transferBtn?.addEventListener('click', transferConversation);
+
+  // Save notes
+  saveNotes?.addEventListener('click', saveUserNotes);
+
   // Close modals when clicking outside
   window.addEventListener('click', (e) => {
     if (e.target === settingsModal) closeSettings();
     if (e.target === contactInfoModal) closeContactInfo();
     if (e.target === emojiPicker) emojiPicker.style.display = 'none';
   });
+}
+
+// Select conversation and load messages
+function selectConversation(phoneNumber) {
+  selectedConversation = phoneNumber;
+  
+  document.querySelectorAll('.chat-tile').forEach(item => {
+    item.classList.toggle('active', item.dataset.phone === phoneNumber);
+  });
+  
+  const conversation = conversations.find(c => c.id === phoneNumber);
+  if (conversation) {
+    chatTitle.textContent = conversation.profileName || 'Unknown';
+    chatSubtitle.textContent = phoneNumber;
+    updateUserDetails(conversation);
+    chatWindowFooter.style.display = 'flex';
+    aiEnabled = conversation.aiEnabled;
+    updateAIToggleButton();
+    
+    // Update agent select
+    if (agentSelect) {
+      agentSelect.value = conversation.assignedAgent || '';
+    }
+  }
+  
+  // Load messages
+  chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
+  if (unsubscribeMessages) unsubscribeMessages();
+  
+  unsubscribeMessages = db.collection('whatsapp_logs')
+    .where('conversationId', '==', phoneNumber)
+    .orderBy('timestamp', 'asc')
+    .onSnapshot(snapshot => {
+      messages[phoneNumber] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        messages[phoneNumber].push({
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate() || new Date(),
+          direction: data.senderId === currentUser.uid ? 'outgoing' : 'incoming'
+        });
+      });
+      renderMessages(phoneNumber);
+    }, error => {
+      console.error('Messages listener error:', error);
+    });
+}
+
+// Render conversations list
+function renderConversations() {
+  chatsList.innerHTML = conversations.length ? '' : 
+    '<div class="empty-state"><p>No conversations yet</p></div>';
+  
+  const filteredConversations = applyFilters();
+  
+  filteredConversations.forEach(conversation => {
+    const lastMessage = conversation.lastMessage || 'No messages yet';
+    const lastActiveTime = formatTime(conversation.lastActive);
+    const agent = conversation.assignedAgent ? 
+      agents.find(a => a.id === conversation.assignedAgent) : null;
+    
+    const chatItem = document.createElement('div');
+    chatItem.className = `chat-tile ${selectedConversation === conversation.id ? 'active' : ''}`;
+    chatItem.dataset.phone = conversation.id;
+    chatItem.innerHTML = `
+      <img src="${conversation.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
+      <div class="chat-tile-details">
+        <div class="chat-tile-title">
+          <span>${conversation.profileName || conversation.id}</span>
+          <span>${lastActiveTime}</span>
+        </div>
+        <div class="chat-tile-subtitle">
+          <span>${truncate(lastMessage, 30)}</span>
+          <span class="chat-tile-status ${conversation.status}">${conversation.status}</span>
+        </div>
+        ${agent ? `<div class="chat-tile-agent">Agent: ${agent.name}</div>` : ''}
+      </div>
+    `;
+    chatsList.appendChild(chatItem);
+  });
+}
+
+// Apply filters to conversations
+function applyFilters() {
+  const searchTerm = searchInput.value.toLowerCase();
+  
+  return conversations.filter(conversation => {
+    return (conversation.profileName || '').toLowerCase().includes(searchTerm) ||
+           conversation.id.includes(searchTerm) ||
+           (conversation.lastMessage || '').toLowerCase().includes(searchTerm);
+  });
+}
+
+// Render messages in chat window
+function renderMessages(phoneNumber) {
+  if (!messages[phoneNumber]?.length) {
+    chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
+    return;
+  }
+
+  chatWindowContents.innerHTML = '';
+  let currentDate = null;
+
+  messages[phoneNumber].forEach(msg => {
+    // Add date separator if needed
+    const messageDate = formatDate(msg.timestamp);
+    if (messageDate !== currentDate) {
+      currentDate = messageDate;
+      const dateElement = document.createElement('div');
+      dateElement.className = 'datestamp-container';
+      dateElement.innerHTML = `<span class="datestamp">${currentDate}</span>`;
+      chatWindowContents.appendChild(dateElement);
+    }
+
+    const isOutgoing = msg.direction === 'outgoing';
+    const messageTime = formatTime(msg.timestamp);
+    let messageContent = msg.text || msg.content || '[Message]';
+
+    // Message group container
+    const messageGroup = document.createElement('div');
+    messageGroup.className = `chat-message-group ${isOutgoing ? 'outgoing' : ''}`;
+    
+    messageGroup.innerHTML = `
+      ${!isOutgoing ? `<img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">` : ''}
+      <div class="chat-messages">
+        <div class="chat-message-container">
+          <div class="chat-message chat-message-first">
+            ${!isOutgoing ? `<div class="chat-message-sender">${msg.senderName || 'Unknown'}</div>` : ''}
+            ${messageContent}
+            <span class="chat-message-time">${messageTime}</span>
+          </div>
+          ${isOutgoing ? `<div class="message-status">${msg.status || 'sent'}</div>` : ''}
+        </div>
+      </div>
+    `;
+    chatWindowContents.appendChild(messageGroup);
+  });
+
+  // Scroll to bottom
+  chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
+}
+
+// Update user details panel
+function updateUserDetails(conversation) {
+  if (!userDetailsContent) return;
+  
+  userDetailsContent.style.display = 'block';
+  userName.textContent = conversation.profileName || 'Unknown';
+  userPhone.textContent = conversation.id;
+  lastActive.textContent = formatTime(conversation.lastActive, true);
+  businessType.textContent = conversation.lastBusinessType || 'Not specified';
+  userStatus.textContent = conversation.status || 'active';
+  userNotes.value = conversation.notes || '';
+}
+
+// Render agent select dropdown
+function renderAgentSelect() {
+  if (!agentSelect) return;
+  
+  agentSelect.innerHTML = '<option value="">Unassigned</option>';
+  agents.forEach(agent => {
+    const option = document.createElement('option');
+    option.value = agent.id;
+    option.textContent = `${agent.name} (${agent.status || 'available'})`;
+    option.disabled = agent.status !== 'available';
+    agentSelect.appendChild(option);
+  });
+  
+  if (selectedConversation) {
+    const conversation = conversations.find(c => c.id === selectedConversation);
+    if (conversation) {
+      agentSelect.value = conversation.assignedAgent || '';
+    }
+  }
+}
+
+// Transfer conversation to another agent
+async function transferConversation() {
+  if (!selectedConversation || !agentSelect.value) return;
+  
+  try {
+    await db.collection('users').doc(selectedConversation).update({
+      assignedAgent: agentSelect.value,
+      status: 'assigned',
+      aiEnabled: false,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Update local state
+    const conversation = conversations.find(c => c.id === selectedConversation);
+    if (conversation) {
+      conversation.assignedAgent = agentSelect.value;
+      conversation.status = 'assigned';
+      conversation.aiEnabled = false;
+      renderConversations();
+      updateUserDetails(conversation);
+    }
+  } catch (error) {
+    console.error('Transfer error:', error);
+  }
+}
+
+// Toggle AI mode
+async function toggleAI() {
+  if (!selectedConversation) return;
+  
+  try {
+    const newAIState = !aiEnabled;
+    await db.collection('users').doc(selectedConversation).update({
+      aiEnabled: newAIState,
+      status: newAIState ? 'ai' : 'assigned',
+      assignedAgent: newAIState ? null : agentSelect.value,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Update local state
+    aiEnabled = newAIState;
+    const conversation = conversations.find(c => c.id === selectedConversation);
+    if (conversation) {
+      conversation.aiEnabled = newAIState;
+      conversation.status = newAIState ? 'ai' : 'assigned';
+      conversation.assignedAgent = newAIState ? null : agentSelect.value;
+      renderConversations();
+      updateUserDetails(conversation);
+    }
+    updateAIToggleButton();
+  } catch (error) {
+    console.error('AI toggle error:', error);
+  }
+}
+
+// Update AI toggle button appearance
+function updateAIToggleButton() {
+  if (!aiToggleBtn) return;
+  aiToggleBtn.classList.toggle('ai-toggle-on', aiEnabled);
+  aiToggleBtn.classList.toggle('ai-toggle-off', !aiEnabled);
+}
+
+// Save user notes
+async function saveUserNotes() {
+  if (!selectedConversation) return;
+  
+  try {
+    await db.collection('users').doc(selectedConversation).update({
+      notes: userNotes.value,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Update local state
+    const conversation = conversations.find(c => c.id === selectedConversation);
+    if (conversation) {
+      conversation.notes = userNotes.value;
+    }
+  } catch (error) {
+    console.error('Save notes error:', error);
+  }
+}
+
+// Send message
+async function sendMessage() {
+  const messageText = messageInput.value.trim();
+  if (!messageText || !selectedConversation) return;
+  
+  try {
+    // Add message to Firestore
+    await db.collection('whatsapp_logs').add({
+      conversationId: selectedConversation,
+      senderId: currentUser.uid,
+      senderName: currentUser.displayName || 'Agent',
+      senderPhotoURL: currentUser.photoURL,
+      text: messageText,
+      direction: 'outgoing',
+      status: 'sent',
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Update conversation last message
+    await db.collection('users').doc(selectedConversation).update({
+      lastMessage: messageText,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    
+    messageInput.value = '';
+  } catch (error) {
+    console.error('Send message error:', error);
+  }
+}
+
+// Modal functions
+function openSettings() {
+  if (settingsModal) settingsModal.style.display = 'block';
+}
+
+function closeSettings() {
+  if (settingsModal) settingsModal.style.display = 'none';
+}
+
+function openContactInfo() {
+  if (contactInfoModal) contactInfoModal.style.display = 'block';
+}
+
+function closeContactInfo() {
+  if (contactInfoModal) contactInfoModal.style.display = 'none';
 }
 
 // Initialize emoji picker
@@ -166,289 +493,6 @@ function initEmojiPicker() {
   });
 }
 
-// Chat selection and message loading
-function selectChat(chatId) {
-  selectedChat = chatId;
-  const chat = chats.find(c => c.id === chatId);
-  
-  // Update UI
-  document.querySelectorAll('.chat-tile').forEach(item => {
-    item.classList.toggle('active', item.dataset.chatId === chatId);
-  });
-  
-  if (chat) {
-    chatTitle.textContent = chat.name || 'Group Chat';
-    chatSubtitle.textContent = `${chat.participants.length} participants`;
-    document.getElementById('chat-profile-image').src = chat.photoURL || 'https://picsum.photos/id/103/50';
-    chatWindowFooter.style.display = 'flex';
-    aiEnabled = chat.aiEnabled;
-    updateAIToggleButton();
-  }
-  
-  // Load messages
-  chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
-  if (unsubscribeMessages) unsubscribeMessages();
-  
-  unsubscribeMessages = db.collection('chats')
-    .doc(chatId)
-    .collection('messages')
-    .orderBy('timestamp', 'asc')
-    .onSnapshot(snapshot => {
-      messages = [];
-      snapshot.forEach(doc => {
-        const message = doc.data();
-        messages.push({
-          id: doc.id,
-          ...message,
-          timestamp: safeConvertTimestamp(message.timestamp)
-        });
-      });
-      renderMessages();
-    }, error => {
-      console.error('Messages listener error:', error);
-    });
-}
-
-// Render chats list
-function renderChatsList() {
-  chatsList.innerHTML = chats.length ? '' : '<div class="empty-state"><p>No conversations yet</p></div>';
-  
-  chats.forEach(chat => {
-    const lastMessage = chat.lastMessage || 'No messages yet';
-    const lastUpdated = formatTime(chat.lastUpdated);
-    const unreadCount = chat.unreadCount ? `<span class="unread-badge">${chat.unreadCount}</span>` : '';
-    
-    const chatItem = document.createElement('div');
-    chatItem.className = `chat-tile ${selectedChat === chat.id ? 'active' : ''}`;
-    chatItem.dataset.chatId = chat.id;
-    chatItem.innerHTML = `
-      <img src="${chat.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
-      <div class="chat-tile-details">
-        <div class="chat-tile-title">
-          <span>${chat.name || 'New Chat'}</span>
-          <span>${lastUpdated}</span>
-        </div>
-        <div class="chat-tile-subtitle">
-          <span>${truncate(lastMessage, 30)}</span>
-          ${unreadCount}
-          <span class="chat-tile-menu">
-            <img src="icons/pin.svg" alt="" class="pin">
-          </span>
-        </div>
-      </div>
-    `;
-    chatsList.appendChild(chatItem);
-  });
-}
-
-// Render messages in chat window
-function renderMessages() {
-  if (messages.length === 0) {
-    chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this chat</p></div>';
-    return;
-  }
-
-  chatWindowContents.innerHTML = '';
-  let currentDate = null;
-
-  messages.forEach(msg => {
-    const messageDate = formatDate(msg.timestamp);
-    if (messageDate !== currentDate) {
-      currentDate = messageDate;
-      chatWindowContents.innerHTML += `
-        <div class="datestamp-container">
-          <span class="datestamp">${currentDate}</span>
-        </div>
-      `;
-    }
-
-    const isCurrentUser = msg.senderId === currentUser.uid;
-    const isAIResponse = msg.isAIResponse || false;
-    const isUnresponded = msg.isUnresponded || false;
-    
-    chatWindowContents.innerHTML += `
-      <div class="chat-message-group ${isCurrentUser ? 'current-user' : ''}">
-        ${!isCurrentUser ? `
-          <img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">
-        ` : ''}
-        <div class="chat-messages">
-          <div class="chat-message-container">
-            <div class="chat-message chat-message-first">
-              ${!isCurrentUser ? `
-                <div class="chat-message-sender">
-                  ${msg.senderName || 'Unknown'}
-                  ${isAIResponse ? '<span class="ai-tag">AI</span>' : ''}
-                </div>
-              ` : ''}
-              ${msg.type === 'interactive' ? renderInteractiveMessage(msg) : msg.text}
-              ${isUnresponded ? '<span class="unresponded-tag">!</span>' : ''}
-              <span class="chat-message-time">${formatTime(msg.timestamp)}</span>
-            </div>
-            ${msg.reactions ? renderReactions(msg.reactions) : ''}
-          </div>
-        </div>
-        ${isCurrentUser ? `
-          <div class="message-actions">
-            <div class="reaction-button">+</div>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  });
-
-  // Add event listeners for interactive messages
-  document.querySelectorAll('.interactive-button').forEach(button => {
-    button.addEventListener('click', (e) => {
-      const buttonId = e.target.dataset.id;
-      e.target.classList.add('selected');
-      e.target.innerHTML += ' ✓';
-      
-      // Send the button response
-      if (selectedChat) {
-        const db = firebase.firestore();
-        db.collection('chats').doc(selectedChat).collection('messages').add({
-          text: `Selected: ${e.target.textContent.replace(' ✓', '')}`,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-          senderId: currentUser.uid,
-          isButtonResponse: true,
-          buttonId: buttonId
-        });
-      }
-    });
-  });
-
-  chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
-}
-
-// Render interactive message (buttons)
-function renderInteractiveMessage(msg) {
-  if (!msg.interactive) return msg.text;
-  
-  if (msg.interactive.type === 'button_reply') {
-    return `
-      <div class="interactive-message">
-        <p>${msg.text}</p>
-        <div class="interactive-buttons">
-          ${msg.interactive.buttons.map(btn => `
-            <button class="interactive-button" data-id="${btn.id}">${btn.title}</button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-  return msg.text;
-}
-
-// Render message reactions
-function renderReactions(reactions) {
-  return `
-    <div class="message-reactions">
-      ${Object.entries(reactions).map(([emoji, users]) => `
-        <span class="reaction">${emoji} ${users.length}</span>
-      `).join('')}
-    </div>
-  `;
-}
-
-// Send a new message
-function sendMessage() {
-  if (!selectedChat || !messageInput.value.trim()) return;
-
-  const messageText = messageInput.value.trim();
-  const newMessage = {
-    text: messageText,
-    senderId: currentUser.uid,
-    senderName: currentUser.displayName || 'You',
-    senderPhotoURL: currentUser.photoURL,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    status: 'sent',
-    isAIResponse: aiEnabled
-  };
-
-  // Add to Firestore
-  db.collection('chats')
-    .doc(selectedChat)
-    .collection('messages')
-    .add(newMessage)
-    .then(() => {
-      // Update last message in chat document
-      db.collection('chats')
-        .doc(selectedChat)
-        .update({
-          lastMessage: messageText,
-          lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-          aiEnabled: aiEnabled
-        });
-    });
-
-  messageInput.value = '';
-}
-
-// Toggle AI mode
-function toggleAI() {
-  if (!selectedChat) return;
-  
-  aiEnabled = !aiEnabled;
-  updateAIToggleButton();
-  
-  // Update in Firestore
-  db.collection('chats')
-    .doc(selectedChat)
-    .update({
-      aiEnabled: aiEnabled
-    });
-}
-
-function updateAIToggleButton() {
-  if (!aiToggleBtn) return;
-  aiToggleBtn.classList.toggle('ai-toggle-on', aiEnabled);
-  aiToggleBtn.classList.toggle('ai-toggle-off', !aiEnabled);
-}
-
-// Modal functions
-function openSettings() {
-  loadUserStats();
-  settingsModal.style.display = 'block';
-}
-
-function closeSettings() {
-  settingsModal.style.display = 'none';
-}
-
-function openContactInfo() {
-  if (!selectedChat) return;
-  loadContactStats();
-  contactInfoModal.style.display = 'block';
-}
-
-function closeContactInfo() {
-  contactInfoModal.style.display = 'none';
-}
-
-// Load user statistics
-function loadUserStats() {
-  if (!currentUser) return;
-  document.getElementById('settings-username').textContent = currentUser.displayName || 'User';
-  document.getElementById('settings-userphone').textContent = currentUser.phoneNumber || 'No phone number';
-  
-  // Simulate loading stats
-  document.getElementById('response-rate-value').textContent = '85%';
-  document.getElementById('response-rate-bar').style.width = '85%';
-  document.getElementById('avg-response-time').textContent = '2.5 min';
-}
-
-// Load contact statistics
-function loadContactStats() {
-  if (!selectedChat) return;
-  const chat = chats.find(c => c.id === selectedChat);
-  if (chat) {
-    document.getElementById('contact-name').textContent = chat.name || 'Contact';
-    document.getElementById('contact-phone').textContent = chat.phone || 'No phone number';
-    document.getElementById('messages-sent').textContent = messages.length;
-    document.getElementById('contact-response-rate').textContent = '75%';
-  }
-}
-
 // Update connection status UI
 function updateConnectionStatus(connected) {
   const notification = document.getElementById('connectivity-notification');
@@ -460,15 +504,20 @@ function updateConnectionStatus(connected) {
 
 // Helper functions
 function formatDate(date) {
-  return date?.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) || '';
+  if (!date) return '';
+  return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-function formatTime(date) {
-  return date?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || '';
+function formatTime(date, fullDate = false) {
+  if (!date) return '';
+  return fullDate ? 
+    date.toLocaleString() : 
+    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function truncate(text, maxLength) {
-  return text?.length > maxLength ? text.substring(0, maxLength) + '...' : text || '';
+  if (!text) return '';
+  return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
 // Initialize the app
