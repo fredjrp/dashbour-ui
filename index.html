@@ -2,109 +2,114 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WhatsApp</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>WhatsApp</title>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+	<!-- Firebase SDK -->
+	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles/core.css">
-  <link rel="stylesheet" href="styles/style.css">
-  <link rel="stylesheet" href="styles/sidebar.css">
-  <link rel="stylesheet" href="styles/chat-window.css">
-  <link rel="stylesheet" href="styles/chat-tile.css">
-  <link rel="stylesheet" href="styles/chat-message.css">
-
-  <!-- Font Awesome for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+	<link rel="stylesheet" href="styles/core.css">
+	<link rel="stylesheet" href="styles/style.css">
+	<link rel="stylesheet" href="styles/sidebar.css">
+	<link rel="stylesheet" href="styles/chat-window.css">
+	<link rel="stylesheet" href="styles/chat-tile.css">
+	<link rel="stylesheet" href="styles/chat-message.css">
 </head>
 
 <body>
-  <main>
-    <!-- Sidebar -->
-    <aside id="sidebar">
-      <header id="sidebar-header">
-        <img src="https://picsum.photos/id/10/50" alt="Profile" class="avatar" id="profile-image">
-        <div class="toolbar">
-          <img src="icons/communities.svg" alt="Communities" class="icon">
-          <img src="icons/status.svg" alt="Status" class="icon">
-          <img src="icons/new-chat.svg" alt="New Chat" class="icon">
-          <div class="dropdown">
-            <img src="icons/menu.svg" alt="Menu" class="icon dropdown-button">
-            <div class="dropdown-content">
-              <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Log out</a>
-              <a href="#"><i class="fas fa-cog"></i> Settings</a>
-            </div>
-          </div>
-        </div>
-      </header>
-      <form id="search-toolbar">
-        <input type="search" id="search-input" placeholder="Search or start a new chat">
-        <img src="icons/filter.svg" alt="Filter" class="icon">
-      </form>
-      <div class="connectivity-notification" id="connectivity-notification">
-        <img src="icons/warning.svg" alt="Offline warning">
-        <div>
-          <div class="connectivity-notification-title">
-            Connecting to Firebase...
-          </div>
-          <span id="connection-status">
-            Establishing real-time connection
-          </span>
-        </div>
-      </div>
-      <section id="sidebar-contents">
-        <div id="chats-list">
-          <!-- Chats will be populated by JavaScript -->
-          <div class="empty-state">
-            <p>Loading conversations...</p>
-          </div>
-        </div>
-      </section>
-    </aside>
+	<main>
 
-    <!-- Chat window -->
-    <section id="chat-window">
-      <header id="chat-window-header">
-        <div id="active-chat-info">
-          <img src="https://picsum.photos/id/103/50" alt="Chat avatar" class="avatar" id="chat-profile-image">
-          <div id="active-chat-details">
-            <h3 id="chat-title">Select a chat</h3>
-            <div class="info" id="chat-subtitle">No chat selected</div>
-          </div>
-        </div>
-        <div class="chat-actions">
-          <img src="icons/search.svg" alt="Search" class="icon">
-          <div class="dropdown">
-            <img src="icons/menu.svg" alt="Menu" class="icon dropdown-button">
-            <div class="dropdown-content chat-menu">
-              <a href="#" id="clear-chat-btn"><i class="fas fa-trash"></i> Clear chat</a>
-              <a href="#" id="mute-chat-btn"><i class="fas fa-bell-slash"></i> Mute notifications</a>
-            </div>
-          </div>
-        </div>
-      </header>
-      <div id="chat-window-contents">
-        <div class="empty-state">
-          <p>Select a conversation to view messages</p>
-        </div>
-      </div>
-      <footer id="chat-window-footer" style="display: none;">
-        <img src="icons/emoji.svg" alt="Emoji" class="icon" id="emoji-btn">
-        <img src="icons/attachment.svg" alt="Attach" class="icon">
-        <input type="text" id="message-input" placeholder="Type a message" autocomplete="off">
-        <img src="icons/mic.svg" alt="Mic" class="icon">
-      </footer>
-    </section>
-  </main>
+		<!-- Sidebar -->
+		<aside id="sidebar">
+			<header id="sidebar-header">
+				<img src="https://picsum.photos/id/10/50" alt="" class="avatar" id="profile-image">
+				<div class="toolbar">
+					<img src="icons/communities.svg" alt="" class="icon">
+					<img src="icons/status.svg" alt="" class="icon">
+					<img src="icons/new-chat.svg" alt="" class="icon">
+					<div class="dropdown">
+						<img src="icons/menu.svg" alt="" class="icon dropdown-button">
+						<div class="dropdown-content">
+							<a href="#">New group</a>
+							<a href="#">New community</a>
+							<a href="#">Archived</a>
+							<a href="#">Starred messages</a>
+							<a href="#">Select chats</a>
+							<a href="#">Settings</a>
+							<a href="#">Log out</a>
+						</div>
+					</div>
+				</div>
+			</header>
+			<form id="search-toolbar">
+				<input type="search" name="" id="search-input" placeholder="Search or start a new chat">
+				<img src="icons/filter.svg" alt="" class="icon">
+			</form>
+			<div class="connectivity-notification">
+				<img src="icons/warning.svg" alt="Offline warning">
+				<div>
+					<div class="connectivity-notification-title">
+						Connecting to chats...
+					</div>
+					<span id="connection-status">
+						Loading conversations
+					</span>
+				</div>
+			</div>
+			<section id="sidebar-contents">
+				<div id="chats-list">
+					<div class="empty-state">
+						<p>Loading conversations...</p>
+					</div>
+				</div>
+			</section>
+		</aside>
 
-  <!-- App Script -->
-  <script src="app.js"></script>
+		<!-- Chat window -->
+		<section id="chat-window">
+			<header id="chat-window-header">
+				<img src="https://picsum.photos/id/103/50" alt="" class="avatar" id="chat-profile-image">
+				<div id="active-chat-details">
+					<h3 id="chat-title">Select a chat</h3>
+					<div class="info" id="chat-subtitle">No chat selected</div>
+				</div>
+				<img src="icons/search.svg" alt="" class="icon">
+				<div class="dropdown">
+					<img src="icons/menu.svg" alt="" class="icon dropdown-button">
+					<div class="dropdown-content contact-menu">
+						<a href="#">Contact info</a>
+						<a href="#">Select messages</a>
+						<a href="#">Close chat</a>
+						<a href="#">Mute notifications</a>
+						<a href="#">Disappearing messages</a>
+						<a href="#">Clear messages</a>
+						<a href="#">Delete chat</a>
+						<a href="#">Report</a>
+						<a href="#">Block</a>
+					</div>
+				</div>
+			</header>
+			<div id="chat-window-contents">
+				<div class="empty-state">
+					<p>Select a conversation to view messages</p>
+				</div>
+			</div>
+			<footer id="chat-window-footer" style="display: none;">
+				<img src="icons/emoji.svg" alt="" class="icon">
+				<img src="icons/attachment.svg" alt="" class="icon">
+				<input type="search" name="message" id="message-input" placeholder="Type a message" autocomplete="off" disabled>
+				<img src="icons/mic.svg" alt="" class="icon">
+			</footer>
+			<a class="scroll-to-top-button" href="#"><img src="icons/arrow-down.svg" alt=""
+					class="icon scroll-to-top-button-icon" height=""></a>
+		</section>
+
+	</main>
+
+	<script src="app.js"></script>
 </body>
 
 </html>
