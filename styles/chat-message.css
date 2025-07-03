@@ -6,6 +6,46 @@
   margin-bottom: 10px;
 }
 
+/* For plain text messages */
+.wa-text-message {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* For interactive replies (list reply type) */
+.wa-interactive-reply {
+  background-color: #ffffff;
+  border: 1px solid #25D366;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  font-family: inherit;
+  max-width: 90%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+  cursor: default;
+  transition: background 0.2s ease;
+}
+
+.wa-interactive-reply:hover {
+  background-color: #f6fffa;
+}
+
+.wa-button-title {
+  font-weight: 600;
+  color: #075e54;
+  font-size: 0.95rem;
+}
+
+.wa-button-description {
+  font-size: 0.85rem;
+  color: #4a4a4a;
+  margin-top: 4px;
+}
+
+
+
 /* AI Toggle Button */
 #ai-toggle-btn {
   background: none;
