@@ -240,17 +240,20 @@ function renderMessages(phoneNumber) {
 
     const isOutgoing = msg.direction === 'outgoing';
     const messageTime = formatTime(msg.timestamp);
-    let messageContent = '[Message]';
+let messageContent = '[Message]';
 
-// Text message
 if (msg.message?.text?.body) {
-  messageContent = msg.message.text.body;
-}
-
-// Interactive reply
-else if (msg.message?.interactive?.list_reply) {
+  messageContent = `
+    <div class="wa-text-message">
+      ${escapeHTML(msg.message.text.body)}
+    </div>`;
+} else if (msg.message?.interactive?.list_reply) {
   const reply = msg.message.interactive.list_reply;
-  messageContent = `<strong>${reply.title}</strong><br><small>${reply.description || ''}</small>`;
+  messageContent = `
+    <div class="wa-interactive-reply">
+      <div class="wa-button-title">${escapeHTML(reply.title)}</div>
+      ${reply.description ? `<div class="wa-button-description">${escapeHTML(reply.description)}</div>` : ''}
+    </div>`;
 }
 
 // Fallbacks
@@ -291,6 +294,11 @@ function updateConnectionStatus(connected) {
     connectionStatus.textContent = 'Connection lost. Reconnecting...';
   }
 }
+
+function escapeHTML(str) {
+  return str?.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") || '';
+}
+
 
 // Utilities
 function formatDate(date) {
