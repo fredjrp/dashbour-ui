@@ -411,3 +411,105 @@ async function sendMessageFromInput() {
 
 // Run on load
 document.addEventListener('DOMContentLoaded', initApp);
+
+const modal = document.getElementById('message-type-modal');
+const emojiIcon = document.querySelector('img[src="icons/emoji.svg"]');
+const closeModal = document.getElementById('close-modal');
+const sendButton = document.getElementById('send-custom-message');
+const typeSelect = document.getElementById('message-type');
+const fieldsContainer = document.getElementById('message-fields');
+
+// 🎯 Show modal when emoji is clicked
+emojiIcon.addEventListener('click', () => {
+  modal.style.display = 'block';
+  renderFields(typeSelect.value);
+});
+
+// ❌ Close modal
+closeModal.addEventListener('click', () => {
+  modal.style.display = 'none';
+  fieldsContainer.innerHTML = '';
+});
+
+// 🧩 Change input fields based on selected type
+typeSelect.addEventListener('change', () => {
+  renderFields(typeSelect.value);
+});
+
+function renderFields(type) {
+  let html = '';
+  if (type === 'text') {
+    html = `<input type="text" id="text-body" placeholder="Message text" />`;
+  } else if (type === 'image') {
+    html = `
+      <input type="text" id="image-link" placeholder="Image URL" />
+      <input type="text" id="image-caption" placeholder="Caption (optional)" />
+    `;
+  } else if (type === 'location') {
+    html = `
+      <input type="text" id="location-lat" placeholder="Latitude" />
+      <input type="text" id="location-lng" placeholder="Longitude" />
+      <input type="text" id="location-name" placeholder="Name (optional)" />
+      <input type="text" id="location-address" placeholder="Address (optional)" />
+    `;
+  } else if (type === 'interactive') {
+    html = `
+      <input type="text" id="button-body" placeholder="Prompt text (e.g. Choose one)" />
+      <input type="text" id="button-1" placeholder="Button 1 Title" />
+      <input type="text" id="button-2" placeholder="Button 2 Title" />
+    `;
+  }
+  fieldsContainer.innerHTML = html;
+}
+
+// 🟢 Send message
+sendButton.addEventListener('click', async () => {
+  const to = prompt("Enter recipient WhatsApp number (e.g. 2547XXXXXXXX):");
+  if (!to) return;
+
+  const type = typeSelect.value;
+  const payload = { to, type };
+
+  if (type === 'text') {
+    payload.text = document.getElementById('text-body').value;
+  } else if (type === 'image') {
+    payload.image = {
+      link: document.getElementById('image-link').value,
+      caption: document.getElementById('image-caption').value
+    };
+  } else if (type === 'location') {
+    payload.location = {
+      latitude: parseFloat(document.getElementById('location-lat').value),
+      longitude: parseFloat(document.getElementById('location-lng').value),
+      name: document.getElementById('location-name').value,
+      address: document.getElementById('location-address').value
+    };
+  } else if (type === 'interactive') {
+    payload.interactive = {
+      type: 'button',
+      body: { text: document.getElementById('button-body').value },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'btn1', title: document.getElementById('button-1').value } },
+          { type: 'reply', reply: { id: 'btn2', title: document.getElementById('button-2').value } }
+        ]
+      }
+    };
+  }
+
+  try {
+    const res = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    alert(result.success ? '✅ Message sent!' : '❌ Failed to send');
+  } catch (err) {
+    alert('❌ Error sending message');
+    console.error(err);
+  }
+
+  modal.style.display = 'none';
+});
