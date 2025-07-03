@@ -106,9 +106,15 @@ function selectConversation(phoneNumber) {
 
   const conversation = conversations.find(c => c.id === phoneNumber);
   if (conversation) {
-    chatTitle.textContent = conversation.profileName || maskPhoneNumber(conversation.id);
-    chatSubtitle.textContent = `You and 69 others`;
-    document.getElementById('chat-profile-image').src = conversation.photoURL || 'https://picsum.photos/id/103/50';
+    chatTitle.textContent = maskPhoneNumber(conversation.id);
+    if (conversation.lastActive) {
+  const timeAgo = timeSince(conversation.lastActive);
+  chatSubtitle.textContent = `Last seen ${timeAgo} ago`;
+  } else {
+  chatSubtitle.textContent = `Last seen recently`;
+  }
+    const initials = getInitials(conversation.profileName || conversation.id);
+document.getElementById('chat-profile-image').src = conversation.photoURL || `https://ui-avatars.com/api/?name=${initials}&background=random&bold=true`;
     chatWindowFooter.style.display = 'flex';
   }
 
@@ -295,6 +301,16 @@ function updateConnectionStatus(connected) {
   }
 }
 
+function getInitials(name) {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+
 function escapeHTML(str) {
   return str?.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") || '';
 }
@@ -302,6 +318,26 @@ function escapeHTML(str) {
 function maskPhoneNumber(number) {
   if (!number || number.length < 9) return number;
   return number.slice(0, 4) + '***' + number.slice(-4);
+}
+
+function timeSince(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  const intervals = [
+    { label: 'year', seconds: 31536000 },
+    { label: 'month', seconds: 2592000 },
+    { label: 'day', seconds: 86400 },
+    { label: 'hour', seconds: 3600 },
+    { label: 'minute', seconds: 60 },
+    { label: 'second', seconds: 1 }
+  ];
+
+  for (let i = 0; i < intervals.length; i++) {
+    const interval = intervals[i];
+    const count = Math.floor(seconds / interval.seconds);
+    if (count > 0) return `${count} ${interval.label}${count !== 1 ? 's' : ''}`;
+  }
+
+  return 'just now';
 }
 
 
