@@ -2,963 +2,114 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp CRM</title>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>WhatsApp</title>
 
-    <!-- Styles -->
-    <link rel="stylesheet" href="styles/core.css">
-    <link rel="stylesheet" href="styles/style.css">
-    <link rel="stylesheet" href="styles/sidebar.css">
-    <link rel="stylesheet" href="styles/chat-window.css">
-    <link rel="stylesheet" href="styles/chat-tile.css">
-    <link rel="stylesheet" href="styles/chat-message.css">
-    
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-    
-    <!-- Chart.js for Analytics -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0"></script>
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* Loading Screen */
-        .loading-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: #111B21;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            transition: opacity 0.3s ease;
-        }
+	<!-- Firebase SDK -->
+	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
 
-        .loading-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            border-top-color: #25D366;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            color: white;
-            font-size: 18px;
-            font-weight: 500;
-        }
-
-        .loading-progress {
-            width: 200px;
-            height: 4px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background-color: #25D366;
-            animation: progress 2s ease-in-out infinite;
-        }
-
-        @keyframes progress {
-            0% { width: 0%; }
-            100% { width: 100%; }
-        }
-        
-        /* Avatar Fallback Styles */
-        .avatar, .chat-tile-avatar, .chat-message-avatar {
-            background-color: #E5DDD5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #667781;
-            font-weight: bold;
-        }
-        
-        .avatar-fallback {
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #E5DDD5;
-            color: #667781;
-            font-weight: bold;
-        }
-        
-        /* Analytics Dashboard */
-        .analytics-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: white;
-            z-index: 100;
-            padding: 20px;
-            overflow-y: auto;
-            display: none;
-        }
-
-        .analytics-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .analytics-header h2 {
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .timeframe-select {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid #E9EDEF;
-            background-color: #F0F2F5;
-            font-size: 14px;
-        }
-
-        .analytics-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .metric-card {
-            background-color: white;
-            border: 1px solid #E9EDEF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .metric-value {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .metric-label {
-            font-size: 14px;
-            color: #667781;
-            margin-bottom: 10px;
-        }
-
-        .metric-trend {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 14px;
-        }
-
-        .metric-trend.up {
-            color: #4CD964;
-        }
-
-        .metric-trend.down {
-            color: #FF3B30;
-        }
-
-        .chart-card {
-            background-color: white;
-            border: 1px solid #E9EDEF;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .chart-card.wide {
-            grid-column: span 2;
-        }
-        
-        /* Error Container */
-        .error-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.8);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1100;
-        }
-
-        .error-content {
-            background-color: white;
-            padding: 30px;
-            border-radius: 12px;
-            max-width: 500px;
-            text-align: center;
-        }
-
-        .error-icon {
-            font-size: 48px;
-            color: #FF3B30;
-            margin-bottom: 20px;
-        }
-    </style>
+	<link rel="stylesheet" href="styles/core.css">
+	<link rel="stylesheet" href="styles/style.css">
+	<link rel="stylesheet" href="styles/sidebar.css">
+	<link rel="stylesheet" href="styles/chat-window.css">
+	<link rel="stylesheet" href="styles/chat-tile.css">
+	<link rel="stylesheet" href="styles/chat-message.css">
 </head>
 
 <body>
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <div class="loading-text">Initializing WhatsApp CRM</div>
-            <div class="loading-progress">
-                <div class="progress-bar"></div>
-            </div>
-        </div>
-    </div>
+	<main>
 
-    <!-- Error Display Container -->
-    <div id="error-container" class="error-container"></div>
+		<!-- Sidebar -->
+		<aside id="sidebar">
+			<header id="sidebar-header">
+				<img src="https://picsum.photos/id/10/50" alt="" class="avatar" id="profile-image">
+				<div class="toolbar">
+					<img src="icons/communities.svg" alt="" class="icon">
+					<img src="icons/status.svg" alt="" class="icon">
+					<img src="icons/new-chat.svg" alt="" class="icon">
+					<div class="dropdown">
+						<img src="icons/menu.svg" alt="" class="icon dropdown-button">
+						<div class="dropdown-content">
+							<a href="#">New group</a>
+							<a href="#">New community</a>
+							<a href="#">Archived</a>
+							<a href="#">Starred messages</a>
+							<a href="#">Select chats</a>
+							<a href="#">Settings</a>
+							<a href="#">Log out</a>
+						</div>
+					</div>
+				</div>
+			</header>
+			<form id="search-toolbar">
+				<input type="search" name="" id="search-input" placeholder="Search or start a new chat">
+				<img src="icons/filter.svg" alt="" class="icon">
+			</form>
+			<div class="connectivity-notification">
+				<img src="icons/warning.svg" alt="Offline warning">
+				<div>
+					<div class="connectivity-notification-title">
+						Connecting to chats...
+					</div>
+					<span id="connection-status">
+						Loading conversations
+					</span>
+				</div>
+			</div>
+			<section id="sidebar-contents">
+				<div id="chats-list">
+					<div class="empty-state">
+						<p>Loading conversations...</p>
+					</div>
+				</div>
+			</section>
+		</aside>
 
-    <!-- Main App Container -->
-    <main id="app-container" style="display: none;">
-        <!-- Sidebar -->
-        <aside id="sidebar">
-            <header id="sidebar-header">
-                <div class="avatar-fallback" id="profile-image">AD</div>
-                <div class="toolbar">
-                    <i class="fas fa-chart-line icon" id="toggle-analytics-btn"></i>
-                    <i class="fas fa-comment-medical icon" id="new-chat-btn"></i>
-                    <div class="dropdown">
-                        <i class="fas fa-ellipsis-v icon dropdown-button"></i>
-                        <div class="dropdown-content">
-                            <a href="#" id="auth-button"><i class="fas fa-sign-out-alt"></i> Sign Out</a>
-                        </div>
-                    </div>
-                </div>
-            </header>
-            <form id="search-toolbar">
-                <input type="search" id="search-input" placeholder="Search conversations...">
-                <i class="fas fa-filter icon"></i>
-            </form>
-            <div class="connectivity-notification">
-                <i class="fas fa-check-circle"></i>
-                <div>
-                    <div class="connectivity-notification-title">
-                        WhatsApp Connected
-                    </div>
-                    <span>
-                        All systems operational
-                    </span>
-                </div>
-            </div>
-            <section id="sidebar-contents">
-                <div id="chats-list">
-                    <div class="empty-state">
-                        <div class="loading-spinner small"></div>
-                        <p>Loading conversations...</p>
-                    </div>
-                </div>
-            </section>
-        </aside>
-        <!-- Sidebar ends -->
+		<!-- Chat window -->
+		<section id="chat-window">
+			<header id="chat-window-header">
+				<img src="https://picsum.photos/id/103/50" alt="" class="avatar" id="chat-profile-image">
+				<div id="active-chat-details">
+					<h3 id="chat-title">Select a chat</h3>
+					<div class="info" id="chat-subtitle">No chat selected</div>
+				</div>
+				<img src="icons/search.svg" alt="" class="icon">
+				<div class="dropdown">
+					<img src="icons/menu.svg" alt="" class="icon dropdown-button">
+					<div class="dropdown-content contact-menu">
+						<a href="#">Contact info</a>
+						<a href="#">Select messages</a>
+						<a href="#">Close chat</a>
+						<a href="#">Mute notifications</a>
+						<a href="#">Disappearing messages</a>
+						<a href="#">Clear messages</a>
+						<a href="#">Delete chat</a>
+						<a href="#">Report</a>
+						<a href="#">Block</a>
+					</div>
+				</div>
+			</header>
+			<div id="chat-window-contents">
+				<div class="empty-state">
+					<p>Select a conversation to view messages</p>
+				</div>
+			</div>
+			<footer id="chat-window-footer" style="display: none;">
+				<img src="icons/emoji.svg" alt="" class="icon">
+				<img src="icons/attachment.svg" alt="" class="icon">
+				<input type="search" name="message" id="message-input" placeholder="Type a message" autocomplete="off" disabled>
+				<img src="icons/mic.svg" alt="" class="icon">
+			</footer>
+			<a class="scroll-to-top-button" href="#"><img src="icons/arrow-down.svg" alt=""
+					class="icon scroll-to-top-button-icon" height=""></a>
+		</section>
 
-        <!-- Chat window -->
-        <section id="chat-window">
-            <header id="chat-window-header">
-                <div class="avatar-fallback" id="current-chat-avatar">?</div>
-                <div id="active-chat-details">
-                    <h3 id="current-chat-name">Select a conversation</h3>
-                    <div class="info" id="current-chat-number"></div>
-                </div>
-                <div class="chat-actions">
-                    <select id="agent-select" class="agent-select" disabled>
-                        <option value="">Assign to agent</option>
-                    </select>
-                    <button id="transfer-btn" class="action-button" disabled>
-                        <i class="fas fa-user-plus"></i>
-                        <span>Transfer</span>
-                    </button>
-                    <button id="ai-btn" class="action-button" disabled>
-                        <i class="fas fa-robot"></i>
-                        <span>AI Mode</span>
-                    </button>
-                </div>
-            </header>
-            <div id="chat-window-contents">
-                <div class="empty-state">
-                    <i class="fas fa-comments"></i>
-                    <p>Select a conversation to view messages</p>
-                </div>
-            </div>
-            <footer id="chat-window-footer" style="display: none;">
-                <i class="fas fa-smile icon"></i>
-                <i class="fas fa-paperclip icon"></i>
-                <input type="text" id="compose-chat-box" placeholder="Type a message" autocomplete="off" disabled>
-                <i class="fas fa-microphone icon"></i>
-            </footer>
-            <a class="scroll-to-top-button" href="#"><i class="fas fa-arrow-down scroll-to-top-button-icon"></i></a>
-        </section>
-        <!-- Chat window ends -->
+	</main>
 
-        <!-- Analytics Dashboard -->
-        <div id="analytics-container" class="analytics-container">
-            <div class="analytics-header">
-                <h2>Conversation Analytics</h2>
-                <div class="analytics-timeframe">
-                    <select id="timeframe-select" class="timeframe-select">
-                        <option value="24h">Last 24 Hours</option>
-                        <option value="7d" selected>Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="90d">Last 90 Days</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="analytics-grid">
-                <div class="metric-card">
-                    <div class="metric-value" id="total-conversations">0</div>
-                    <div class="metric-label">Total Conversations</div>
-                    <div class="metric-trend up">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>12%</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-value" id="active-conversations">0</div>
-                    <div class="metric-label">Active Conversations</div>
-                    <div class="metric-trend down">
-                        <i class="fas fa-arrow-down"></i>
-                        <span>5%</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-value" id="avg-response-time">0s</div>
-                    <div class="metric-label">Avg Response Time</div>
-                    <div class="metric-trend up">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>8%</span>
-                    </div>
-                </div>
-                
-                <div class="metric-card">
-                    <div class="metric-value" id="closed-conversations">0</div>
-                    <div class="metric-label">Closed Conversations</div>
-                    <div class="metric-trend up">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>15%</span>
-                    </div>
-                </div>
-                
-                <div class="chart-card wide">
-                    <canvas id="conversations-chart"></canvas>
-                </div>
-                
-                <div class="chart-card">
-                    <canvas id="status-distribution-chart"></canvas>
-                </div>
-                
-                <div class="chart-card">
-                    <canvas id="business-type-chart"></canvas>
-                </div>
-                
-                <div class="chart-card wide">
-                    <canvas id="response-time-chart"></canvas>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Main Application Script -->
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const loadingScreen = document.getElementById('loading-screen');
-        const errorContainer = document.getElementById('error-container');
-        const appContainer = document.getElementById('app-container');
-        
-        // Initialize Firebase directly here if app.js fails
-        function initializeFirebase() {
-            try {
-                // Replace with your actual Firebase config
-                const firebaseConfig = {
-             apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
-  authDomain: "housingfreeop.firebaseapp.com",
-  databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
-  projectId: "housingfreeop",
-  storageBucket: "housingfreeop.appspot.com",
-  messagingSenderId: "369472820914",
-  appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
-  measurementId: "G-E6H9E9DLCP"
-                  };
-                
-                // Initialize Firebase
-                if (!firebase.apps.length) {
-                    firebase.initializeApp(firebaseConfig);
-                }
-                
-                // Hide loading screen and show app
-                loadingScreen.style.opacity = '0';
-                setTimeout(() => {
-                    loadingScreen.style.display = 'none';
-                    appContainer.style.display = 'flex';
-                    initApp();
-                }, 300);
-                
-            } catch (error) {
-                console.error("Firebase initialization error:", error);
-                loadingScreen.style.display = 'none';
-                showError(`Firebase initialization failed: ${error.message}`);
-            }
-        }
-
-        // Show error message
-        function showError(message) {
-            errorContainer.style.display = 'flex';
-            errorContainer.innerHTML = `
-                <div class="error-content">
-                    <i class="fas fa-exclamation-circle error-icon"></i>
-                    <h3>Application Error</h3>
-                    <p>${message}</p>
-                    <p>Please check your configuration and try again.</p>
-                </div>
-            `;
-        }
-
-        // Check if firebase is available
-        if (typeof firebase === 'undefined') {
-            loadingScreen.style.display = 'none';
-            showError('Firebase SDK failed to load. Please check your internet connection.');
-            return;
-        }
-
-        // Try to load app.js, fallback to direct initialization
-        const script = document.createElement('script');
-        script.src = "scripts/app.js";
-        script.onerror = function() {
-            console.log("app.js not found, initializing directly");
-            initializeFirebase();
-        };
-        script.onload = function() {
-            console.log("app.js loaded");
-            // Give it a moment to initialize
-            setTimeout(() => {
-                if (!firebase.apps.length) {
-                    initializeFirebase();
-                } else {
-                    loadingScreen.style.opacity = '0';
-                    setTimeout(() => {
-                        loadingScreen.style.display = 'none';
-                        appContainer.style.display = 'flex';
-                        initApp();
-                    }, 300);
-                }
-            }, 100);
-        };
-        document.head.appendChild(script);
-
-        // Image error handling
-        document.addEventListener('error', function(e) {
-            if (e.target.tagName.toLowerCase() === 'img') {
-                const img = e.target;
-                if (img.classList.contains('avatar') || 
-                    img.classList.contains('chat-tile-avatar') || 
-                    img.classList.contains('chat-message-avatar')) {
-                    
-                    // Get initials from the name or use a default
-                    const parent = img.closest('.chat-tile, .chat-message-group, #sidebar-header');
-                    let initials = '?';
-                    
-                    if (parent) {
-                        const nameElement = parent.querySelector('.chat-tile-title span, .chat-message-sender, h3');
-                        if (nameElement) {
-                            const name = nameElement.textContent.trim();
-                            initials = name.split(' ').map(n => n[0]).join('').substring(0, 2);
-                        }
-                    }
-                    
-                    // Replace with initials
-                    const fallback = document.createElement('div');
-                    fallback.className = 'avatar-fallback';
-                    fallback.textContent = initials;
-                    fallback.style.width = img.width + 'px';
-                    fallback.style.height = img.height + 'px';
-                    
-                    img.parentNode.insertBefore(fallback, img);
-                    img.style.display = 'none';
-                }
-            }
-        }, true);
-
-        // Main Application Initialization
-        function initApp() {
-            console.log("Initializing application...");
-            
-            // Get references to DOM elements
-            const chatsList = document.getElementById('chats-list');
-            const chatWindowContents = document.getElementById('chat-window-contents');
-            const currentChatName = document.getElementById('current-chat-name');
-            const currentChatNumber = document.getElementById('current-chat-number');
-            const currentChatAvatar = document.getElementById('current-chat-avatar');
-            const composeChatBox = document.getElementById('compose-chat-box');
-            const chatWindowFooter = document.getElementById('chat-window-footer');
-            const analyticsContainer = document.getElementById('analytics-container');
-            const toggleAnalyticsBtn = document.getElementById('toggle-analytics-btn');
-            const searchInput = document.getElementById('search-input');
-            const agentSelect = document.getElementById('agent-select');
-            const transferBtn = document.getElementById('transfer-btn');
-            const aiBtn = document.getElementById('ai-btn');
-            
-            // Initialize Firestore
-            const db = firebase.firestore();
-            let currentConversationId = null;
-            let conversations = [];
-            let agents = [];
-            
-            // Format date
-            function formatDate(date) {
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            }
-            
-            // Format time
-            function formatTime(date) {
-                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            }
-            
-            // Load agents from Firestore
-            function loadAgents() {
-                db.collection("agents").get()
-                    .then((querySnapshot) => {
-                        agents = [];
-                        agentSelect.innerHTML = '<option value="">Assign to agent</option>';
-                        
-                        querySnapshot.forEach((doc) => {
-                            const agent = { id: doc.id, ...doc.data() };
-                            agents.push(agent);
-                            
-                            const option = document.createElement('option');
-                            option.value = doc.id;
-                            option.textContent = agent.name;
-                            agentSelect.appendChild(option);
-                        });
-                        
-                        agentSelect.disabled = false;
-                    })
-                    .catch((error) => {
-                        console.error("Error loading agents: ", error);
-                    });
-            }
-            
-            // Load conversations from Firestore
-            function loadConversations() {
-                chatsList.innerHTML = '<div class="empty-state"><div class="loading-spinner small"></div><p>Loading conversations...</p></div>';
-                
-                db.collection("conversations")
-                    .orderBy("lastMessageTime", "desc")
-                    .limit(50)
-                    .get()
-                    .then((querySnapshot) => {
-                        conversations = [];
-                        chatsList.innerHTML = '';
-                        
-                        if (querySnapshot.empty) {
-                            chatsList.innerHTML = `
-                                <div class="empty-state">
-                                    <i class="fas fa-comment-slash"></i>
-                                    <p>No conversations found</p>
-                                </div>
-                            `;
-                            return;
-                        }
-                        
-                        querySnapshot.forEach((doc) => {
-                            const conversation = { id: doc.id, ...doc.data() };
-                            conversations.push(conversation);
-                            addConversationToSidebar(conversation);
-                        });
-                    })
-                    .catch((error) => {
-                        console.error("Error getting conversations: ", error);
-                        chatsList.innerHTML = `
-                            <div class="empty-state">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <p>Error loading conversations</p>
-                            </div>
-                        `;
-                    });
-            }
-            
-            // Add conversation to sidebar
-            function addConversationToSidebar(conversation) {
-                const chatTile = document.createElement('div');
-                chatTile.className = 'chat-tile';
-                chatTile.dataset.conversationId = conversation.id;
-                
-                // Format last message time
-                const lastMessageTime = conversation.lastMessageTime?.toDate() || new Date();
-                const timeString = formatTime(lastMessageTime);
-                
-                chatTile.innerHTML = `
-                    <div class="avatar-fallback">${(conversation.name || conversation.phone || '?').substring(0, 2)}</div>
-                    <div class="chat-tile-details">
-                        <div class="chat-tile-title">
-                            <span>${conversation.name || conversation.phone || 'Unknown'}</span>
-                            <span>${timeString}</span>
-                        </div>
-                        <div class="chat-tile-subtitle">
-                            <span>${conversation.lastMessage || 'No messages'}</span>
-                            <span class="chat-tile-menu">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </span>
-                        </div>
-                    </div>
-                `;
-                
-                // Add click event to load conversation
-                chatTile.addEventListener('click', () => loadConversation(conversation.id));
-                chatsList.appendChild(chatTile);
-            }
-            
-            // Load a specific conversation
-            function loadConversation(conversationId) {
-                currentConversationId = conversationId;
-                const conversation = conversations.find(c => c.id === conversationId);
-                
-                if (!conversation) return;
-                
-                // Update chat header
-                currentChatName.textContent = conversation.name || conversation.phone || 'Unknown';
-                currentChatNumber.textContent = conversation.phone || '';
-                currentChatAvatar.textContent = (conversation.name || conversation.phone || '?').substring(0, 2);
-                
-                // Enable action buttons
-                transferBtn.disabled = false;
-                aiBtn.disabled = false;
-                
-                // Show message input
-                chatWindowFooter.style.display = 'flex';
-                composeChatBox.disabled = false;
-                
-                // Clear previous messages
-                chatWindowContents.innerHTML = '';
-                
-                // Load messages for this conversation
-                db.collection("conversations").doc(conversationId).collection("messages")
-                    .orderBy("timestamp", "asc")
-                    .get()
-                    .then((querySnapshot) => {
-                        if (querySnapshot.empty) {
-                            chatWindowContents.innerHTML = `
-                                <div class="empty-state">
-                                    <i class="fas fa-comment-alt"></i>
-                                    <p>No messages in this conversation</p>
-                                </div>
-                            `;
-                            return;
-                        }
-                        
-                        let currentDate = null;
-                        
-                        querySnapshot.forEach((doc) => {
-                            const message = doc.data();
-                            const messageDate = message.timestamp.toDate();
-                            const dateString = formatDate(messageDate);
-                            
-                            // Add date stamp if needed
-                            if (dateString !== currentDate) {
-                                currentDate = dateString;
-                                addDateStamp(dateString);
-                            }
-                            
-                            addMessageToChat(message, conversation);
-                        });
-                        
-                        // Scroll to bottom
-                        setTimeout(() => {
-                            chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
-                        }, 100);
-                    })
-                    .catch((error) => {
-                        console.error("Error getting messages: ", error);
-                    });
-            }
-            
-            // Add a message to the chat window
-            function addMessageToChat(message, conversation) {
-                const messageGroup = document.createElement('div');
-                messageGroup.className = 'chat-message-group';
-                
-                // Simple grouping logic - group messages from same sender within 5 minutes
-                const isFirstInGroup = true; // For simplicity, we'll treat each message as new group
-                
-                messageGroup.innerHTML = `
-                    <div class="avatar-fallback">${(message.sender || '?').substring(0, 2)}</div>
-                    <div class="chat-messages">
-                        <div class="chat-message-container">
-                            <div class="chat-message ${isFirstInGroup ? 'chat-message-first' : ''}">
-                                ${isFirstInGroup ? `<div class="chat-message-sender">${message.sender || 'Unknown'}</div>` : ''}
-                                ${message.text}
-                                <span class="chat-message-time">${formatTime(message.timestamp.toDate())}</span>
-                            </div>
-                            <div class="emoji-toolbar">
-                                <i class="fas fa-smile icon reaction-button"></i>
-                                <div class="reaction-emoji-selector">
-                                    <a href="#" class="icon">👍🏻</a>
-                                    <a href="#" class="icon">💖</a>
-                                    <a href="#" class="icon">😂</a>
-                                    <a href="#" class="icon">😮</a>
-                                    <a href="#" class="icon">😢</a>
-                                    <a href="#" class="icon">🙏</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                chatWindowContents.appendChild(messageGroup);
-            }
-            
-            // Add a date stamp to the chat
-            function addDateStamp(dateString) {
-                const dateStamp = document.createElement('div');
-                dateStamp.className = 'datestamp-container';
-                dateStamp.innerHTML = `
-                    <span class="datestamp">
-                        ${dateString}
-                    </span>
-                `;
-                chatWindowContents.appendChild(dateStamp);
-            }
-            
-            // Send a new message
-            function sendMessage(text) {
-                if (!currentConversationId) return;
-                
-                const message = {
-                    text: text,
-                    sender: "You",
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    status: "sent"
-                };
-                
-                // Add message to Firestore
-                db.collection("conversations").doc(currentConversationId).collection("messages")
-                    .add(message)
-                    .then(() => {
-                        // Update last message in conversation
-                        db.collection("conversations").doc(currentConversationId).update({
-                            lastMessage: text,
-                            lastMessageTime: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    })
-                    .catch((error) => {
-                        console.error("Error sending message: ", error);
-                    });
-            }
-            
-            // Assign agent to conversation
-            function assignAgentToConversation(agentId) {
-                if (!currentConversationId || !agentId) return;
-                
-                const agent = agents.find(a => a.id === agentId);
-                if (!agent) return;
-                
-                db.collection("conversations").doc(currentConversationId).update({
-                    assignedAgent: agentId,
-                    assignedAgentName: agent.name
-                })
-                .then(() => {
-                    console.log("Agent assigned successfully");
-                })
-                .catch((error) => {
-                    console.error("Error assigning agent: ", error);
-                });
-            }
-            
-            // Initialize analytics charts
-            function initAnalyticsCharts() {
-                // Conversations over time chart
-                const ctx1 = document.getElementById('conversations-chart').getContext('2d');
-                new Chart(ctx1, {
-                    type: 'line',
-                    data: {
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                        datasets: [{
-                            label: 'Conversations',
-                            data: [12, 19, 3, 5, 2, 3, 8],
-                            borderColor: '#25D366',
-                            backgroundColor: 'rgba(37, 211, 102, 0.1)',
-                            fill: true,
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        }
-                    }
-                });
-                
-                // Status distribution chart
-                const ctx2 = document.getElementById('status-distribution-chart').getContext('2d');
-                new Chart(ctx2, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Active', 'Pending', 'Closed', 'Spam'],
-                        datasets: [{
-                            data: [30, 15, 40, 15],
-                            backgroundColor: [
-                                '#25D366',
-                                '#FFCC00',
-                                '#34B7F1',
-                                '#FF3B30'
-                            ],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }
-                });
-                
-                // Business type chart
-                const ctx3 = document.getElementById('business-type-chart').getContext('2d');
-                new Chart(ctx3, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Retail', 'Service', 'Wholesale', 'Other'],
-                        datasets: [{
-                            label: 'Business Types',
-                            data: [12, 19, 3, 5],
-                            backgroundColor: '#25D366'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true
-                            }
-                        }
-                    }
-                });
-                
-                // Response time chart
-                const ctx4 = document.getElementById('response-time-chart').getContext('2d');
-                new Chart(ctx4, {
-                    type: 'line',
-                    data: {
-                        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                        datasets: [{
-                            label: 'Response Time (min)',
-                            data: [5, 8, 3, 6, 2, 4, 7],
-                            borderColor: '#25D366',
-                            backgroundColor: 'rgba(37, 211, 102, 0.1)',
-                            fill: true,
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                display: false
-                            }
-                        }
-                    }
-                });
-            }
-            
-            // Setup event listeners
-            function setupEventListeners() {
-                // Toggle analytics dashboard
-                toggleAnalyticsBtn.addEventListener('click', function() {
-                    analyticsContainer.style.display = analyticsContainer.style.display === 'block' ? 'none' : 'block';
-                    if (analyticsContainer.style.display === 'block') {
-                        initAnalyticsCharts();
-                    }
-                });
-                
-                // Send message
-                composeChatBox.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter' && currentConversationId) {
-                        const messageText = composeChatBox.value.trim();
-                        if (messageText) {
-                            sendMessage(messageText);
-                            composeChatBox.value = '';
-                        }
-                    }
-                });
-                
-                // Search conversations
-                searchInput.addEventListener('input', function() {
-                    const searchTerm = searchInput.value.toLowerCase();
-                    const chatTiles = chatsList.querySelectorAll('.chat-tile');
-                    
-                    chatTiles.forEach(tile => {
-                        const name = tile.querySelector('.chat-tile-title span:first-child').textContent.toLowerCase();
-                        const message = tile.querySelector('.chat-tile-subtitle span:first-child').textContent.toLowerCase();
-                        
-                        if (name.includes(searchTerm) || message.includes(searchTerm)) {
-                            tile.style.display = 'flex';
-                        } else {
-                            tile.style.display = 'none';
-                        }
-                    });
-                });
-                
-                // Assign agent
-                agentSelect.addEventListener('change', function() {
-                    if (currentConversationId && this.value) {
-                        assignAgentToConversation(this.value);
-                    }
-                });
-            }
-            
-            // Start the application
-            loadAgents();
-            loadConversations();
-            setupEventListeners();
-        }
-    });
-    </script>
+	<script src="app.js"></script>
 </body>
+
 </html>
