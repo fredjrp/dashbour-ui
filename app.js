@@ -114,7 +114,7 @@ function selectConversation(phoneNumber) {
   chatSubtitle.textContent = `Last seen recently`;
   }
     const initials = getInitials(conversation.profileName || conversation.id);
-document.getElementById('chat-profile-image').src = conversation.photoURL || `https://ui-avatars.com/api/?name=${initials}&background=random&bold=true`;
+document.getElementById('chat-profile-image').src = conversation.photoURL || `https://ui-avatars.com/api/?name=${initials}&background=random&bold=true&size=40``;
     chatWindowFooter.style.display = 'flex';
   }
 
