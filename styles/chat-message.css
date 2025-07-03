@@ -265,16 +265,20 @@
   text-align: right;
 }
 
-.chat-message-group.outgoing .chat-messages {
-  align-items: flex-end;
-}
-
 .chat-message-group.outgoing .chat-message {
-  background-color: var(--primary);
+  background-color: #dcf8c6;
+  color: black;
+  border-radius: 12px 12px 0 12px;
 }
 
-.chat-message-group.outgoing .chat-message-time {
-  justify-content: flex-end;
-  text-align: right;
+.chat-message-group:not(.outgoing) .chat-message {
+  background-color: #2a2f32;
+  color: white;
+  border-radius: 12px 12px 12px 0;
+}
+
+.chat-message {
+  max-width: 80%;
+  word-break: break-word;
 }
 
