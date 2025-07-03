@@ -115,25 +115,75 @@ function selectConversation(phoneNumber) {
   chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
   if (unsubscribeMessages) unsubscribeMessages();
 
-  unsubscribeMessages = db.collection('messages')
-    .where('conversationId', '==', phoneNumber)
-    .orderBy('timestamp', 'asc')
-    .onSnapshot(snapshot => {
-      messages[phoneNumber] = [];
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        messages[phoneNumber].push({
-          id: doc.id,
-          ...data,
-          direction: data.senderId === phoneNumber ? 'incoming' : 'outgoing',
-          timestamp: data.timestamp?.toDate?.() || new Date()
+  // ✅ Load messages from whatsapp_logs, not messages collection
+  loadMessagesForConversation(phoneNumber);
+}
+
+async function loadMessagesForConversation(phoneNumber) {
+  try {
+    const incomingQuery = db.collection('whatsapp_logs')
+      .where('from', '==', phoneNumber)
+      .orderBy('timestamp', 'asc');
+
+    const incomingSnapshot = await incomingQuery.get();
+
+    messages[phoneNumber] = [];
+    incomingSnapshot.forEach(doc => {
+      const data = doc.data();
+      messages[phoneNumber].push({
+        id: doc.id,
+        ...data,
+        direction: 'incoming',
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+      });
+    });
+
+    const outgoingSnapshot = await db.collection('whatsapp_logs')
+      .where('to', '==', phoneNumber)
+      .get();
+
+    outgoingSnapshot.forEach(doc => {
+      const data = doc.data();
+      messages[phoneNumber].push({
+        id: doc.id,
+        ...data,
+        direction: 'outgoing',
+        timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+      });
+    });
+
+    messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+    renderMessages(phoneNumber);
+
+    // Live updates: listen to new incoming messages
+    unsubscribeMessages = db.collection('whatsapp_logs')
+      .where('from', '==', phoneNumber)
+      .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const newMessage = {
+              id: change.doc.id,
+              ...data,
+              direction: 'incoming',
+              timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+            };
+
+            if (!messages[phoneNumber].some(msg => msg.id === newMessage.id)) {
+              messages[phoneNumber].push(newMessage);
+              messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
+              renderMessages(phoneNumber);
+            }
+          }
         });
       });
-      renderMessages(phoneNumber);
-    }, error => {
-      console.error('❌ Messages listener error:', error);
-    });
+
+  } catch (error) {
+    console.error('❌ Error loading messages from whatsapp_logs:', error);
+    chatWindowContents.innerHTML = '<div class="empty-state"><p>Error loading messages. Please try again.</p></div>';
+  }
 }
+
 
 // Render conversation tiles
 function renderConversations() {
