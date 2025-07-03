@@ -240,7 +240,24 @@ function renderMessages(phoneNumber) {
 
     const isOutgoing = msg.direction === 'outgoing';
     const messageTime = formatTime(msg.timestamp);
-    let messageContent = msg.text || msg.content || '[Message]';
+    let messageContent = '[Message]';
+
+// Text message
+if (msg.message?.text?.body) {
+  messageContent = msg.message.text.body;
+}
+
+// Interactive reply
+else if (msg.message?.interactive?.list_reply) {
+  const reply = msg.message.interactive.list_reply;
+  messageContent = `<strong>${reply.title}</strong><br><small>${reply.description || ''}</small>`;
+}
+
+// Fallbacks
+else if (msg.message?.type) {
+  messageContent = `[${msg.message.type} message]`;
+}
+
 
     const messageGroup = document.createElement('div');
     messageGroup.className = `chat-message-group ${isOutgoing ? 'outgoing' : ''}`;
