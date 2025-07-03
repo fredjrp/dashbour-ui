@@ -11,7 +11,7 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // DOM elements
@@ -24,7 +24,7 @@ const chatWindowFooter = document.getElementById('chat-window-footer');
 const connectionStatus = document.getElementById('connection-status');
 const searchInput = document.getElementById('search-input');
 
-// State variables
+// State
 let selectedConversation = null;
 let conversations = [];
 let messages = {};
@@ -37,22 +37,25 @@ function initApp() {
   setupEventListeners();
 }
 
-// Set up real-time Firestore listeners
-// Set up real-time Firestore listeners
+// Firestore listener
 function setupRealTimeListeners() {
   unsubscribeConversations = db.collection('users')
     .orderBy('lastActive', 'desc')
     .limit(100)
     .onSnapshot(snapshot => {
+      console.log('📡 Firestore connected. Docs:', snapshot.size);
       conversations = [];
+
       snapshot.forEach(doc => {
         const data = doc.data();
-        console.log('📄 Firestore doc data:', doc.id, data);
+        console.log('➡️ Doc:', doc.id, data);
 
-        // Safe timestamp handling for Firestore
-        const lastActive = (data.lastActive && typeof data.lastActive.toDate === 'function')
-          ? data.lastActive.toDate()
-          : null;
+        let lastActive = null;
+        if (data.lastActive && typeof data.lastActive.toDate === 'function') {
+          lastActive = data.lastActive.toDate();
+        } else if (data.lastActive instanceof Date) {
+          lastActive = data.lastActive;
+        }
 
         conversations.push({
           id: doc.id,
@@ -69,14 +72,13 @@ function setupRealTimeListeners() {
       renderConversations();
       updateConnectionStatus(true);
     }, error => {
-      console.error('🔥 Firestore listener error:', error.message);
+      console.error('❌ Firestore listener error:', error);
       updateConnectionStatus(false);
     });
 }
 
-// Set up event listeners
+// Event listeners
 function setupEventListeners() {
-  // Chat selection
   chatsList.addEventListener('click', (e) => {
     const chatItem = e.target.closest('.chat-tile');
     if (chatItem) {
@@ -84,37 +86,35 @@ function setupEventListeners() {
     }
   });
 
-  // Search functionality
   searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
     document.querySelectorAll('.chat-tile').forEach(chat => {
-      const matches = chat.dataset.chatName.toLowerCase().includes(searchTerm) || 
-                     chat.querySelector('.chat-tile-subtitle span').textContent.toLowerCase().includes(searchTerm);
+      const matches = chat.dataset.chatName.toLowerCase().includes(searchTerm) ||
+        chat.querySelector('.chat-tile-subtitle span').textContent.toLowerCase().includes(searchTerm);
       chat.style.display = matches ? 'flex' : 'none';
     });
   });
 }
 
-// Select conversation and load messages from Firestore
+// Select and render messages
 function selectConversation(phoneNumber) {
   selectedConversation = phoneNumber;
-  
+
   document.querySelectorAll('.chat-tile').forEach(item => {
     item.classList.toggle('active', item.dataset.phone === phoneNumber);
   });
-  
+
   const conversation = conversations.find(c => c.id === phoneNumber);
   if (conversation) {
     chatTitle.textContent = conversation.profileName || 'Unknown';
-    chatSubtitle.textContent = `You and 69 others`; // Default as in your design
+    chatSubtitle.textContent = `You and 69 others`;
     document.getElementById('chat-profile-image').src = conversation.photoURL || 'https://picsum.photos/id/103/50';
     chatWindowFooter.style.display = 'flex';
   }
-  
+
   chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
   if (unsubscribeMessages) unsubscribeMessages();
-  
-  // Load messages from Firestore
+
   unsubscribeMessages = db.collection('messages')
     .where('conversationId', '==', phoneNumber)
     .orderBy('timestamp', 'asc')
@@ -126,28 +126,29 @@ function selectConversation(phoneNumber) {
           id: doc.id,
           ...data,
           direction: data.senderId === phoneNumber ? 'incoming' : 'outgoing',
-          timestamp: data.timestamp?.toDate() || new Date()
+          timestamp: data.timestamp?.toDate?.() || new Date()
         });
       });
       renderMessages(phoneNumber);
     }, error => {
-      console.error('Messages listener error:', error);
+      console.error('❌ Messages listener error:', error);
     });
 }
 
-// Render conversations list
+// Render conversation tiles
 function renderConversations() {
-  chatsList.innerHTML = conversations.length ? '' : 
+  chatsList.innerHTML = conversations.length ? '' :
     '<div class="empty-state"><p>No conversations found</p></div>';
-  
+
   conversations.forEach(conversation => {
     const lastMessage = conversation.lastMessage || 'No messages yet';
     const lastActiveTime = formatTime(conversation.lastActive);
-    
+
     const chatItem = document.createElement('div');
     chatItem.className = `chat-tile ${selectedConversation === conversation.id ? 'active' : ''}`;
     chatItem.dataset.phone = conversation.id;
     chatItem.dataset.chatName = conversation.profileName || '';
+
     chatItem.innerHTML = `
       <img src="${conversation.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
       <div class="chat-tile-details">
@@ -167,7 +168,7 @@ function renderConversations() {
   });
 }
 
-// Render messages
+// Render chat messages
 function renderMessages(phoneNumber) {
   if (!messages[phoneNumber]?.length) {
     chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
@@ -178,7 +179,6 @@ function renderMessages(phoneNumber) {
   let currentDate = null;
 
   messages[phoneNumber].forEach(msg => {
-    // Add date separator if needed
     const messageDate = formatDate(msg.timestamp);
     if (messageDate !== currentDate) {
       currentDate = messageDate;
@@ -192,10 +192,8 @@ function renderMessages(phoneNumber) {
     const messageTime = formatTime(msg.timestamp);
     let messageContent = msg.text || msg.content || '[Message]';
 
-    // Message group container
     const messageGroup = document.createElement('div');
     messageGroup.className = `chat-message-group ${isOutgoing ? 'outgoing' : ''}`;
-    
     messageGroup.innerHTML = `
       ${!isOutgoing ? `<img src="${msg.senderPhotoURL || 'https://picsum.photos/50'}" alt="" class="chat-message-avatar">` : ''}
       <div class="chat-messages">
@@ -212,11 +210,10 @@ function renderMessages(phoneNumber) {
     chatWindowContents.appendChild(messageGroup);
   });
 
-  // Scroll to bottom
   chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
 }
 
-// Update connection status UI
+// Connection status
 function updateConnectionStatus(connected) {
   const notification = document.querySelector('.connectivity-notification');
   if (connected) {
@@ -228,21 +225,19 @@ function updateConnectionStatus(connected) {
   }
 }
 
-// Helper functions
+// Utilities
 function formatDate(date) {
   if (!date) return '';
   return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
 }
-
 function formatTime(date) {
   if (!date) return '';
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
-
 function truncate(text, maxLength) {
   if (!text) return '';
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
 
-// Initialize the app when DOM is loaded
+// Run on load
 document.addEventListener('DOMContentLoaded', initApp);
