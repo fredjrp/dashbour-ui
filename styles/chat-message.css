@@ -270,7 +270,7 @@
 }
 
 .chat-message-group.outgoing .chat-message {
-  background-color: #dcf8c6; /* WhatsApp green bubble for sent */
+  background-color: var(--primary);
 }
 
 .chat-message-group.outgoing .chat-message-time {
