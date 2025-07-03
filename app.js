@@ -113,8 +113,7 @@ function selectConversation(phoneNumber) {
   } else {
   chatSubtitle.textContent = `Last seen recently`;
   }
-    const initials = getInitials(conversation.profileName || conversation.id);
-document.getElementById('chat-profile-image').src = conversation.photoURL || `https://ui-avatars.com/api/?name=${initials}&background=random&bold=true&size=40`;
+    document.getElementById('chat-profile-image').src = conversation.photoURL || 'https://picsum.photos/id/103/50';
     chatWindowFooter.style.display = 'flex';
   }
 
