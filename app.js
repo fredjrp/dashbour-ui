@@ -38,8 +38,8 @@ function initApp() {
 }
 
 // Set up real-time Firestore listeners
+// Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-  // Listen to users collection in Firestore
   unsubscribeConversations = db.collection('users')
     .orderBy('lastActive', 'desc')
     .limit(100)
@@ -47,19 +47,29 @@ function setupRealTimeListeners() {
       conversations = [];
       snapshot.forEach(doc => {
         const data = doc.data();
+        console.log('📄 Firestore doc data:', doc.id, data);
+
+        // Safe timestamp handling for Firestore
+        const lastActive = (data.lastActive && typeof data.lastActive.toDate === 'function')
+          ? data.lastActive.toDate()
+          : null;
+
         conversations.push({
           id: doc.id,
-          ...data,
-          lastActive: data.lastActive?.toDate() || new Date(),
+          profileName: data.profileName || doc.id,
+          photoURL: data.photoURL || null,
+          lastMessage: data.lastMessage || 'No messages yet',
+          lastActive: lastActive,
           assignedAgent: data.assignedAgent || null,
           status: data.status || 'active',
           aiEnabled: data.aiEnabled !== false
         });
       });
+
       renderConversations();
       updateConnectionStatus(true);
     }, error => {
-      console.error('Conversations listener error:', error);
+      console.error('🔥 Firestore listener error:', error.message);
       updateConnectionStatus(false);
     });
 }
