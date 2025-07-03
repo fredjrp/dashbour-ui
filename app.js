@@ -47,10 +47,18 @@ function setupRealTimeListeners() {
       conversations = [];
       snapshot.forEach(doc => {
         const data = doc.data();
+        
+        let lastActiveDate;
+        if (data.lastActive && typeof data.lastActive.toDate === 'function') {
+          lastActiveDate = data.lastActive.toDate();
+        } else {
+          lastActiveDate = new Date(); // fallback value
+        }
+
         conversations.push({
           id: doc.id,
           ...data,
-          lastActive: data.lastActive?.toDate() || new Date(),
+          lastActive: lastActiveDate,
           assignedAgent: data.assignedAgent || null,
           status: data.status || 'active',
           aiEnabled: data.aiEnabled !== false
