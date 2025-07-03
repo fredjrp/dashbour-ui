@@ -67,5 +67,5 @@
 
 .chat-tile:hover > .chat-tile-details > .chat-tile-subtitle ~ .chat-tile-menu {
   display: inline-flexbox;
-  background-color: red;
+  background-color: green;
 }
