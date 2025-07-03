@@ -209,7 +209,7 @@ function renderConversations() {
       <img src="${conversation.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
       <div class="chat-tile-details">
         <div class="chat-tile-title">
-          <span>${conversation.profileName || maskPhoneNumber(conversation.id)}</span>
+          <span>${maskPhoneNumber(conversation.id)}</span>
           <span>${lastActiveTime}</span>
         </div>
         <div class="chat-tile-subtitle">
