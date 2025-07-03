@@ -86,6 +86,18 @@ function setupEventListeners() {
     }
   });
 
+  // Handle send button click
+  document.getElementById('send-button').addEventListener('click', sendMessageFromInput);
+
+  // Handle Enter key in input
+  messageInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendMessageFromInput();
+    }
+  });
+
+
   searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
     document.querySelectorAll('.chat-tile').forEach(chat => {
@@ -353,6 +365,49 @@ function truncate(text, maxLength) {
   if (!text) return '';
   return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 }
+
+async function sendMessageFromInput() {
+  const text = messageInput.value.trim();
+  if (!text || !selectedConversation) return;
+
+  try {
+    // 1. Send message to your backend
+    await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        to: selectedConversation,
+        type: 'text',
+        text: text
+      })
+    });
+
+    // 2. Clear input
+    messageInput.value = '';
+
+    // 3. Add to messages UI
+    const now = new Date();
+    messages[selectedConversation] = messages[selectedConversation] || [];
+    messages[selectedConversation].push({
+      id: 'local-' + Date.now(),
+      to: selectedConversation,
+      message: {
+        text: { body: text }
+      },
+      direction: 'outgoing',
+      timestamp: now,
+      status: 'sent'
+    });
+
+    renderMessages(selectedConversation);
+  } catch (error) {
+    console.error('❌ Message send failed:', error);
+    alert('Failed to send message.');
+  }
+}
+
 
 // Run on load
 document.addEventListener('DOMContentLoaded', initApp);
