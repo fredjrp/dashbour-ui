@@ -106,7 +106,7 @@ function selectConversation(phoneNumber) {
 
   const conversation = conversations.find(c => c.id === phoneNumber);
   if (conversation) {
-    chatTitle.textContent = conversation.profileName || 'Unknown';
+    chatTitle.textContent = conversation.profileName || maskPhoneNumber(conversation.id);
     chatSubtitle.textContent = `You and 69 others`;
     document.getElementById('chat-profile-image').src = conversation.photoURL || 'https://picsum.photos/id/103/50';
     chatWindowFooter.style.display = 'flex';
@@ -203,7 +203,7 @@ function renderConversations() {
       <img src="${conversation.photoURL || 'https://picsum.photos/id/103/50'}" alt="" class="chat-tile-avatar">
       <div class="chat-tile-details">
         <div class="chat-tile-title">
-          <span>${conversation.profileName || conversation.id}</span>
+          <span>${conversation.profileName || maskPhoneNumber(conversation.id)}</span>
           <span>${lastActiveTime}</span>
         </div>
         <div class="chat-tile-subtitle">
@@ -297,6 +297,11 @@ function updateConnectionStatus(connected) {
 
 function escapeHTML(str) {
   return str?.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") || '';
+}
+
+function maskPhoneNumber(number) {
+  if (!number || number.length < 9) return number;
+  return number.slice(0, 4) + '***' + number.slice(-4);
 }
 
 
