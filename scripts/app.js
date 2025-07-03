@@ -10,7 +10,7 @@ const firebaseConfig = {
   measurementId: "G-E6H9E9DLCP"
 };
 
-// Initialize Firebase without authentication
+// Initialize Firebase
 const app = firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -37,9 +37,9 @@ function initApp() {
   setupEventListeners();
 }
 
-// Set up real-time Firestore listeners (matches your existing structure)
+// Set up real-time Firestore listeners
 function setupRealTimeListeners() {
-  // Listen to users collection as in your original code
+  // Listen to users collection in Firestore
   unsubscribeConversations = db.collection('users')
     .orderBy('lastActive', 'desc')
     .limit(100)
@@ -50,7 +50,7 @@ function setupRealTimeListeners() {
         conversations.push({
           id: doc.id,
           ...data,
-          lastActive: data.lastActive?.toDate ? data.lastActive.toDate() : new Date(data.lastActive || Date.now()),
+          lastActive: data.lastActive?.toDate() || new Date(),
           assignedAgent: data.assignedAgent || null,
           status: data.status || 'active',
           aiEnabled: data.aiEnabled !== false
@@ -85,7 +85,7 @@ function setupEventListeners() {
   });
 }
 
-// Select conversation and load messages (matches your original structure)
+// Select conversation and load messages from Firestore
 function selectConversation(phoneNumber) {
   selectedConversation = phoneNumber;
   
@@ -104,9 +104,9 @@ function selectConversation(phoneNumber) {
   chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
   if (unsubscribeMessages) unsubscribeMessages();
   
-  // Load messages from whatsapp_logs as in your original code
-  unsubscribeMessages = db.collection('whatsapp_logs')
-    .where('from', '==', phoneNumber)
+  // Load messages from Firestore
+  unsubscribeMessages = db.collection('messages')
+    .where('conversationId', '==', phoneNumber)
     .orderBy('timestamp', 'asc')
     .onSnapshot(snapshot => {
       messages[phoneNumber] = [];
@@ -115,33 +115,17 @@ function selectConversation(phoneNumber) {
         messages[phoneNumber].push({
           id: doc.id,
           ...data,
-          direction: 'incoming',
-          timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
+          direction: data.senderId === phoneNumber ? 'incoming' : 'outgoing',
+          timestamp: data.timestamp?.toDate() || new Date()
         });
       });
-      
-      // Also get outgoing messages as in your original code
-      db.collection('whatsapp_logs')
-        .where('to', '==', phoneNumber)
-        .get()
-        .then(outgoingSnapshot => {
-          outgoingSnapshot.forEach(doc => {
-            const data = doc.data();
-            messages[phoneNumber].push({
-              id: doc.id,
-              ...data,
-              direction: 'outgoing',
-              timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp || Date.now())
-            });
-          });
-          
-          messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
-          renderMessages(phoneNumber);
-        });
+      renderMessages(phoneNumber);
+    }, error => {
+      console.error('Messages listener error:', error);
     });
 }
 
-// Render conversations list (matches your original design)
+// Render conversations list
 function renderConversations() {
   chatsList.innerHTML = conversations.length ? '' : 
     '<div class="empty-state"><p>No conversations found</p></div>';
@@ -173,7 +157,7 @@ function renderConversations() {
   });
 }
 
-// Render messages (matches your original design)
+// Render messages
 function renderMessages(phoneNumber) {
   if (!messages[phoneNumber]?.length) {
     chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
@@ -196,7 +180,7 @@ function renderMessages(phoneNumber) {
 
     const isOutgoing = msg.direction === 'outgoing';
     const messageTime = formatTime(msg.timestamp);
-    let messageContent = msg.text?.body || msg.message?.text?.body || msg.message?.body || '[Message]';
+    let messageContent = msg.text || msg.content || '[Message]';
 
     // Message group container
     const messageGroup = document.createElement('div');
