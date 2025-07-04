@@ -471,8 +471,10 @@ function renderFields(type) {
 
 // 🟢 Send custom message
 sendButton.addEventListener('click', async () => {
-  const to = prompt("Enter recipient WhatsApp number (e.g. 2547XXXXXXXX):");
-  if (!to) return;
+  if (!selectedConversation) {
+    alert('❌ No conversation selected.');
+    return;
+  }
 
   const type = typeSelect.value;
   const payload = { to, type };
