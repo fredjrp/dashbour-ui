@@ -411,30 +411,38 @@ async function sendMessageFromInput() {
 // Run on load
 document.addEventListener('DOMContentLoaded', initApp);
 
-const modal = document.getElementById('message-type-modal');
 const emojiIcon = document.querySelector('img[src="icons/emoji.svg"]');
-const closeModal = document.getElementById('close-modal');
-const sendButton = document.getElementById('send-custom-message');
+const messageDropdown = document.getElementById('message-type-dropdown');
 const typeSelect = document.getElementById('message-type');
 const fieldsContainer = document.getElementById('message-fields');
+const sendButton = document.getElementById('send-custom-message');
 
-// 🎯 Show modal when emoji is clicked
-emojiIcon.addEventListener('click', () => {
-  modal.style.display = 'block';
+// 🎯 Toggle dropdown on emoji icon click
+emojiIcon.addEventListener('click', (e) => {
+  e.stopPropagation();
+  messageDropdown.classList.toggle('hidden');
+
+  // Position near emoji icon
+  const rect = emojiIcon.getBoundingClientRect();
+  messageDropdown.style.left = `${rect.left}px`;
+  messageDropdown.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+
   renderFields(typeSelect.value);
 });
 
-// ❌ Close modal
-closeModal.addEventListener('click', () => {
-  modal.style.display = 'none';
-  fieldsContainer.innerHTML = '';
+// ❌ Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!messageDropdown.contains(e.target) && e.target !== emojiIcon) {
+    messageDropdown.classList.add('hidden');
+  }
 });
 
-// 🧩 Change input fields based on selected type
+// 🧩 Change input fields on type selection
 typeSelect.addEventListener('change', () => {
   renderFields(typeSelect.value);
 });
 
+// 🧩 Render message input fields based on type
 function renderFields(type) {
   let html = '';
   if (type === 'text') {
@@ -461,7 +469,7 @@ function renderFields(type) {
   fieldsContainer.innerHTML = html;
 }
 
-// 🟢 Send message
+// 🟢 Send custom message
 sendButton.addEventListener('click', async () => {
   const to = prompt("Enter recipient WhatsApp number (e.g. 2547XXXXXXXX):");
   if (!to) return;
@@ -510,5 +518,5 @@ sendButton.addEventListener('click', async () => {
     console.error(err);
   }
 
-  modal.style.display = 'none';
+  messageDropdown.classList.add('hidden'); // Hide after sending
 });
