@@ -8,6 +8,49 @@ main {
   height: 100%;
 }
 
+.message-dropdown {
+  position: absolute;
+  bottom: 60px;
+  left: 60px;
+  width: 280px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  padding: 15px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-dropdown h4 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+.message-dropdown select,
+.message-dropdown input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.message-dropdown .interactive-button {
+  background-color: #25D366;
+  color: white;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.hidden {
+  display: none;
+}
+
+
 .modal {
   display: none;
   position: fixed;
