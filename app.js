@@ -475,7 +475,8 @@ sendButton.addEventListener('click', async () => {
     alert('❌ No conversation selected.');
     return;
   }
-
+  
+  const to = selectedConversation;
   const type = typeSelect.value;
   const payload = { to, type };
 
