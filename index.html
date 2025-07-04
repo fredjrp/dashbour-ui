@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -108,26 +109,23 @@
 		</section>
 
 	</main>
-<!-- 📦 Message Type Modal -->
-<div id="message-type-modal" class="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      <h3>Send Special Message</h3>
-      <span class="close-modal" id="close-modal">&times;</span>
-    </div>
+<!-- ✨ Message Type Dropdown -->
+<div id="message-type-dropdown" class="message-dropdown hidden">
+  <h4>Send Special Message</h4>
 
-    <label for="message-type">Select Type:</label>
-    <select id="message-type">
-      <option value="text">Text</option>
-      <option value="image">Image</option>
-      <option value="location">Location</option>
-      <option value="interactive">Interactive Button</option>
-    </select>
+  <label for="message-type">Select Type:</label>
+  <select id="message-type">
+    <option value="text">Text</option>
+    <option value="image">Image</option>
+    <option value="location">Location</option>
+    <option value="interactive">Interactive Button</option>
+  </select>
 
-    <div id="message-fields"></div>
+  <div id="message-fields" class="dropdown-fields"></div>
 
-    <button id="send-custom-message" class="interactive-button">Send</button>
-  </div>
+  <button id="send-custom-message" class="interactive-button">Send</button>
+</div>
+
 </div>
 
 	<script src="app.js"></script>
