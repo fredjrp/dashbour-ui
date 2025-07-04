@@ -1,13 +1,12 @@
 // Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCDYianIs_dLAI2bpBNRPRXVamHDYOhIcE",
-  authDomain: "housingfreeop.firebaseapp.com",
-  databaseURL: "https://housingfreeop-default-rtdb.firebaseio.com",
-  projectId: "housingfreeop",
-  storageBucket: "housingfreeop.appspot.com",
-  messagingSenderId: "369472820914",
-  appId: "1:369472820914:web:3f189fe62e034bb1a91bab",
-  measurementId: "G-E6H9E9DLCP"
+  apiKey: "AIzaSyBQIwJzAzqcz2mKnZyNIDA6Nm3dnsEVJOU",
+  authDomain: "ai-assistant-6fa6f.firebaseapp.com",
+  projectId: "ai-assistant-6fa6f",
+  storageBucket: "ai-assistant-6fa6f.firebasestorage.app",
+  messagingSenderId: "959657907969",
+  appId: "1:959657907969:web:886b643c098435865bed00",
+  measurementId: "G-SL0YLWT2TX"
 };
 
 // Initialize Firebase
