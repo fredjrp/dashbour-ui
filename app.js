@@ -108,7 +108,7 @@ function setupEventListeners() {
 }
 
 // Select and render messages
-function selectConversation(phoneNumber) {
+  async function selectConversation(phoneNumber) {
   selectedConversation = phoneNumber;
 
   document.querySelectorAll('.chat-tile').forEach(item => {
@@ -116,25 +116,43 @@ function selectConversation(phoneNumber) {
   });
 
   // 🟢 AI Toggle state setup
+// 🟢 AI Toggle setup with Firestore logic compliance
 const aiToggle = document.getElementById('ai-toggle-checkbox');
+if (!aiToggle) return;
 
-db.collection('users').doc(phoneNumber).get().then(doc => {
-  const enabled = doc.exists ? doc.data().aiEnabled !== false : true;
-  aiToggle.checked = enabled;
-  updateAIToggleColor(enabled);
-});
+const userRef = db.collection('users').doc(phoneNumber);
+const userDoc = await userRef.get();
 
-// 🛑 Update state when toggled
+let enabled = true; // default
+if (!userDoc.exists) {
+  // Create with aiEnabled = true
+  await userRef.set({ aiEnabled: true }, { merge: true });
+} else {
+  const data = userDoc.data();
+  if (typeof data.aiEnabled === 'undefined') {
+    await userRef.update({ aiEnabled: true });
+  } else {
+    enabled = data.aiEnabled;
+  }
+}
+
+// Set the toggle UI state
+aiToggle.checked = enabled;
+updateAIToggleColor(enabled);
+
+// 🛑 Update Firestore when toggle changes
 aiToggle.onchange = async () => {
   const newState = aiToggle.checked;
   updateAIToggleColor(newState);
-  await db.collection('users').doc(phoneNumber).set({ aiEnabled: newState }, { merge: true });
+  await userRef.set({ aiEnabled: newState }, { merge: true });
 };
 
-// 🎨 Color control helper
+// 🎨 Update toggle color
 function updateAIToggleColor(enabled) {
   const slider = document.querySelector('.slider');
-  slider.style.backgroundColor = enabled ? '#2ecc71' : '#e74c3c';
+  if (slider) {
+    slider.style.backgroundColor = enabled ? '#2ecc71' : '#e74c3c';
+  }
 }
 
 
