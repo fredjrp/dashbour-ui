@@ -115,6 +115,29 @@ function selectConversation(phoneNumber) {
     item.classList.toggle('active', item.dataset.phone === phoneNumber);
   });
 
+  // 🟢 AI Toggle state setup
+const aiToggle = document.getElementById('ai-toggle-checkbox');
+
+db.collection('users').doc(phoneNumber).get().then(doc => {
+  const enabled = doc.exists ? doc.data().aiEnabled !== false : true;
+  aiToggle.checked = enabled;
+  updateAIToggleColor(enabled);
+});
+
+// 🛑 Update state when toggled
+aiToggle.onchange = async () => {
+  const newState = aiToggle.checked;
+  updateAIToggleColor(newState);
+  await db.collection('users').doc(phoneNumber).set({ aiEnabled: newState }, { merge: true });
+};
+
+// 🎨 Color control helper
+function updateAIToggleColor(enabled) {
+  const slider = document.querySelector('.slider');
+  slider.style.backgroundColor = enabled ? '#2ecc71' : '#e74c3c';
+}
+
+
   const conversation = conversations.find(c => c.id === phoneNumber);
   if (conversation) {
     chatTitle.textContent = maskPhoneNumber(conversation.id);
