@@ -100,7 +100,14 @@
 			</div>
 			<footer id="chat-window-footer" style="display: none;">
                                 <img src="icons/emoji.svg" alt="Special Message" class="icon" id="open-dropdown-button">
-				<img src="icons/attachment.svg" alt="" class="icon">
+                                  <!-- 🔁 AI Toggle Replaces Attachment Icon -->
+  <div class="ai-toggle">
+    <label class="switch">
+      <input type="checkbox" id="ai-toggle-checkbox">
+      <span class="slider round"></span>
+    </label>
+    <span class="toggle-label">AI</span>
+  </div>
 				<input type="search" name="message" id="message-input" placeholder="Type a message" autocomplete="on">
 				<img src="icons/mic.svg" alt="Send" class="icon" id="send-button">
 			</footer>
