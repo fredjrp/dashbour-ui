@@ -136,3 +136,63 @@ main {
 .dropdown:hover .dropdown-content {
   display: flex;
 }
+/* Toggle container */
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 12px;
+}
+
+/* Switch structure */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Slider base */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #e74c3c; /* Red when OFF */
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+/* When ON */
+input:checked + .slider {
+  background-color: #2ecc71; /* Green when ON */
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+/* Label next to toggle */
+.toggle-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #555;
+}
+
