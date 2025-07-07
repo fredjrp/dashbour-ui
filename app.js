@@ -464,3 +464,141 @@ function updateConnectionStatus(connected) {
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', initApp);
+
+const emojiIcon = document.querySelector('img[src="icons/emoji.svg"]');
+const messageDropdown = document.getElementById('message-type-dropdown');
+const typeSelect = document.getElementById('message-type');
+const fieldsContainer = document.getElementById('message-fields');
+const sendButton = document.getElementById('send-custom-message');
+
+// 🎯 Toggle dropdown on emoji icon click
+emojiIcon.addEventListener('click', (e) => {
+  e.stopPropagation();
+  messageDropdown.classList.toggle('hidden');
+
+  // Position near emoji icon
+  const rect = emojiIcon.getBoundingClientRect();
+  messageDropdown.style.left = `${rect.left}px`;
+  messageDropdown.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+
+  renderFields(typeSelect.value);
+});
+
+// ❌ Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!messageDropdown.contains(e.target) && e.target !== emojiIcon) {
+    messageDropdown.classList.add('hidden');
+  }
+});
+
+// 🧩 Change input fields on type selection
+typeSelect.addEventListener('change', () => {
+  renderFields(typeSelect.value);
+});
+
+// 🧩 Render message input fields based on type
+function renderFields(type) {
+  let html = '';
+  if (type === 'text') {
+    html = `<input type="text" id="text-body" placeholder="Message text" />`;
+  } else if (type === 'image') {
+    html = `
+      <input type="text" id="image-link" placeholder="Image URL" />
+      <input type="text" id="image-caption" placeholder="Caption (optional)" />
+    `;
+  } else if (type === 'location') {
+    html = `
+      <input type="text" id="location-lat" placeholder="Latitude" />
+      <input type="text" id="location-lng" placeholder="Longitude" />
+      <input type="text" id="location-name" placeholder="Name (optional)" />
+      <input type="text" id="location-address" placeholder="Address (optional)" />
+    `;
+  } else if (type === 'interactive') {
+    html = `
+      <input type="text" id="button-body" placeholder="Prompt text (e.g. Choose one)" />
+      <input type="text" id="button-1" placeholder="Button 1 Title" />
+      <input type="text" id="button-2" placeholder="Button 2 Title" />
+    `;
+  }
+  fieldsContainer.innerHTML = html;
+}
+
+// 🟢 Send custom message
+sendButton.addEventListener('click', async () => {
+  if (!selectedConversation) {
+    alert('❌ No conversation selected.');
+    return;
+  }
+  
+  const to = selectedConversation;
+  const type = typeSelect.value;
+  const payload = { to, type };
+
+  if (type === 'text') {
+    payload.text = { body: document.getElementById('text-body').value };
+  } else if (type === 'image') {
+    payload.image = {
+      link: document.getElementById('image-link').value,
+      caption: document.getElementById('image-caption').value
+    };
+  } else if (type === 'location') {
+    payload.location = {
+      latitude: parseFloat(document.getElementById('location-lat').value),
+      longitude: parseFloat(document.getElementById('location-lng').value),
+      name: document.getElementById('location-name').value,
+      address: document.getElementById('location-address').value
+    };
+  } else if (type === 'interactive') {
+    payload.interactive = {
+      type: 'button',
+      body: { text: document.getElementById('button-body').value },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'btn1', title: document.getElementById('button-1').value } },
+          { type: 'reply', reply: { id: 'btn2', title: document.getElementById('button-2').value } }
+        ]
+      }
+    };
+  }
+
+  try {
+    // Show loading state
+    sendButton.disabled = true;
+    sendButton.textContent = 'Sending...';
+
+    const res = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    
+    if (result.success) {
+      alert('✅ Message sent!');
+      messageDropdown.classList.add('hidden');
+      
+      // Add to local messages
+      const now = new Date();
+      messages[selectedConversation] = messages[selectedConversation] || [];
+      messages[selectedConversation].push({
+        id: result.messageId || `gen-${Date.now()}`,
+        to: selectedConversation,
+        message: payload,
+        direction: 'outgoing',
+        timestamp: now,
+        status: 'sent'
+      });
+      renderMessages(selectedConversation);
+    } else {
+      alert('❌ Failed to send: ' + (result.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Error sending message:', err);
+    alert('❌ Error sending message');
+  } finally {
+    // Reset button state
+    sendButton.disabled = false;
+    sendButton.textContent = 'Send';
+  }
+});
