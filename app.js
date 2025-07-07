@@ -9,6 +9,29 @@ const firebaseConfig = {
   measurementId: "G-SL0YLWT2TX"
 };
 
+// Get elements
+const emojiButton = document.getElementById('open-dropdown-button');
+const dropdown = emojiButton.closest('.dropdown');
+
+// Toggle active state on click
+emojiButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  dropdown.classList.toggle('active');
+});
+
+// Close when clicking outside
+document.addEventListener('click', (e) => {
+  if (!dropdown.contains(e.target)) {
+    dropdown.classList.remove('active');
+  }
+});
+
+// Keep your existing type change handler
+const typeSelect = document.getElementById('message-type');
+typeSelect.addEventListener('change', () => {
+  renderFields(typeSelect.value);
+});
+
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
