@@ -483,7 +483,6 @@ function updateConnectionStatus(connected) {
 document.addEventListener('DOMContentLoaded', initApp);
 
   const emojiDropdown = document.querySelector('.dropdown img[src="icons/emoji.svg"]').closest('.dropdown');
-  const typeSelect = document.getElementById('message-type');
   const fieldsContainer = document.getElementById('message-fields');
   
   // Toggle dropdown on click
