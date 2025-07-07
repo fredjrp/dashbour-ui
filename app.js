@@ -591,4 +591,3 @@ document.addEventListener('DOMContentLoaded', initApp);
       alert('Error: ' + error.message);
     }
   });
-});
