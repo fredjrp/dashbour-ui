@@ -8,7 +8,6 @@ const firebaseConfig = {
   appId: "1:959657907969:web:886b643c098435865bed00",
   measurementId: "G-SL0YLWT2TX"
 };
-
 // Get elements
 const emojiButton = document.getElementById('open-dropdown-button');
 const dropdown = emojiButton.closest('.dropdown');
