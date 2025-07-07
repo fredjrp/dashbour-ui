@@ -99,7 +99,20 @@
 				</div>
 			</div>
 			<footer id="chat-window-footer" style="display: none;">
-                                <img src="icons/emoji.svg" alt="Special Message" class="icon" id="open-dropdown-button">
+                                    <div class="dropdown">
+  <img src="icons/emoji.svg" alt="Special Message" class="icon dropdown-button" id="open-dropdown-button">
+  <div class="dropdown-content" id="message-type-dropdown">
+    <select id="message-type" class="dropdown-select">
+      <option value="text">Text Message</option>
+      <option value="image">Image Message</option>
+      <option value="location">Location Message</option>
+      <option value="interactive">Interactive Button</option>
+    </select>
+    <div id="message-fields" class="message-fields"></div>
+    <button id="send-custom-message" class="dropdown-button">Send</button>
+  </div>
+</div>
+
                                   <!-- 🔁 AI Toggle Replaces Attachment Icon -->
   <div class="ai-toggle">
     <label class="switch">
