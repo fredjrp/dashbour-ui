@@ -8,22 +8,6 @@ const firebaseConfig = {
   appId: "1:959657907969:web:886b643c098435865bed00",
   measurementId: "G-SL0YLWT2TX"
 };
-// Get elements
-const emojiButton = document.getElementById('open-dropdown-button');
-const dropdown = emojiButton.closest('.dropdown');
-
-// Toggle active state on click
-emojiButton.addEventListener('click', (e) => {
-  e.stopPropagation();
-  dropdown.classList.toggle('active');
-});
-
-// Close when clicking outside
-document.addEventListener('click', (e) => {
-  if (!dropdown.contains(e.target)) {
-    dropdown.classList.remove('active');
-  }
-});
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
@@ -481,112 +465,140 @@ function updateConnectionStatus(connected) {
 // Initialize on load
 document.addEventListener('DOMContentLoaded', initApp);
 
-  const emojiDropdown = document.querySelector('.dropdown img[src="icons/emoji.svg"]').closest('.dropdown');
-  const fieldsContainer = document.getElementById('message-fields');
+const emojiIcon = document.querySelector('img[src="icons/emoji.svg"]');
+const messageDropdown = document.getElementById('message-type-dropdown');
+const typeSelect = document.getElementById('message-type');
+const fieldsContainer = document.getElementById('message-fields');
+const sendButton = document.getElementById('send-custom-message');
+
+// 🎯 Toggle dropdown on emoji icon click
+emojiIcon.addEventListener('click', (e) => {
+  e.stopPropagation();
+  messageDropdown.classList.toggle('hidden');
+
+  // Position near emoji icon
+  const rect = emojiIcon.getBoundingClientRect();
+  messageDropdown.style.left = `${rect.left}px`;
+  messageDropdown.style.bottom = `${window.innerHeight - rect.top + 10}px`;
+
+  renderFields(typeSelect.value);
+});
+
+// ❌ Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (!messageDropdown.contains(e.target) && e.target !== emojiIcon) {
+    messageDropdown.classList.add('hidden');
+  }
+});
+
+// 🧩 Change input fields on type selection
+typeSelect.addEventListener('change', () => {
+  renderFields(typeSelect.value);
+});
+
+// 🧩 Render message input fields based on type
+function renderFields(type) {
+  let html = '';
+  if (type === 'text') {
+    html = `<input type="text" id="text-body" placeholder="Message text" />`;
+  } else if (type === 'image') {
+    html = `
+      <input type="text" id="image-link" placeholder="Image URL" />
+      <input type="text" id="image-caption" placeholder="Caption (optional)" />
+    `;
+  } else if (type === 'location') {
+    html = `
+      <input type="text" id="location-lat" placeholder="Latitude" />
+      <input type="text" id="location-lng" placeholder="Longitude" />
+      <input type="text" id="location-name" placeholder="Name (optional)" />
+      <input type="text" id="location-address" placeholder="Address (optional)" />
+    `;
+  } else if (type === 'interactive') {
+    html = `
+      <input type="text" id="button-body" placeholder="Prompt text (e.g. Choose one)" />
+      <input type="text" id="button-1" placeholder="Button 1 Title" />
+      <input type="text" id="button-2" placeholder="Button 2 Title" />
+    `;
+  }
+  fieldsContainer.innerHTML = html;
+}
+
+// 🟢 Send custom message
+sendButton.addEventListener('click', async () => {
+  if (!selectedConversation) {
+    alert('❌ No conversation selected.');
+    return;
+  }
   
-  // Toggle dropdown on click
-  emojiDropdown.querySelector('.dropdown-button').addEventListener('click', function(e) {
-    e.stopPropagation();
-    emojiDropdown.classList.toggle('active');
-  });
-  
-  // Close when clicking outside
-  document.addEventListener('click', function(e) {
-    if (!emojiDropdown.contains(e.target)) {
-      emojiDropdown.classList.remove('active');
-    }
-  });
-  
-  // Render fields based on type
-  typeSelect.addEventListener('change', function() {
-    const type = this.value;
-    let html = '';
-    
-    if (type === 'text') {
-      html = `<input type="text" placeholder="Message text" class="message-input" />`;
-    } else if (type === 'image') {
-      html = `
-        <input type="text" placeholder="Image URL" class="message-input" />
-        <input type="text" placeholder="Caption (optional)" class="message-input" />
-      `;
-    } else if (type === 'location') {
-      html = `
-        <input type="text" placeholder="Latitude" class="message-input" />
-        <input type="text" placeholder="Longitude" class="message-input" />
-        <input type="text" placeholder="Name (optional)" class="message-input" />
-        <input type="text" placeholder="Address (optional)" class="message-input" />
-      `;
-    } else if (type === 'interactive') {
-      html = `
-        <input type="text" placeholder="Prompt text" class="message-input" />
-        <input type="text" placeholder="Button 1 Title" class="message-input" />
-        <input type="text" placeholder="Button 2 Title" class="message-input" />
-      `;
-    }
-    
-    fieldsContainer.innerHTML = html;
-  });
-  
-  // Send message functionality
-  document.getElementById('send-custom-message').addEventListener('click', async function() {
-    const type = typeSelect.value;
-    const inputs = fieldsContainer.querySelectorAll('.message-input');
-    const phoneNumber = selectedConversation; // From your existing code
-    
-    if (!phoneNumber) {
-      alert('Please select a conversation first');
-      return;
-    }
-    
-    try {
-      const payload = {
-        to: phoneNumber,
-        type: type
-      };
-      
-      if (type === 'text') {
-        payload.text = { body: inputs[0].value };
-      } else if (type === 'image') {
-        payload.image = {
-          link: inputs[0].value,
-          caption: inputs[1].value || ''
-        };
-      } else if (type === 'location') {
-        payload.location = {
-          latitude: parseFloat(inputs[0].value),
-          longitude: parseFloat(inputs[1].value),
-          name: inputs[2].value || '',
-          address: inputs[3].value || ''
-        };
-      } else if (type === 'interactive') {
-        payload.interactive = {
-          type: 'button',
-          body: { text: inputs[0].value },
-          action: {
-            buttons: [
-              { type: 'reply', reply: { id: 'btn1', title: inputs[1].value } },
-              { type: 'reply', reply: { id: 'btn2', title: inputs[2].value } }
-            ]
-          }
-        };
+  const to = selectedConversation;
+  const type = typeSelect.value;
+  const payload = { to, type };
+
+  if (type === 'text') {
+    payload.text = { body: document.getElementById('text-body').value };
+  } else if (type === 'image') {
+    payload.image = {
+      link: document.getElementById('image-link').value,
+      caption: document.getElementById('image-caption').value
+    };
+  } else if (type === 'location') {
+    payload.location = {
+      latitude: parseFloat(document.getElementById('location-lat').value),
+      longitude: parseFloat(document.getElementById('location-lng').value),
+      name: document.getElementById('location-name').value,
+      address: document.getElementById('location-address').value
+    };
+  } else if (type === 'interactive') {
+    payload.interactive = {
+      type: 'button',
+      body: { text: document.getElementById('button-body').value },
+      action: {
+        buttons: [
+          { type: 'reply', reply: { id: 'btn1', title: document.getElementById('button-1').value } },
+          { type: 'reply', reply: { id: 'btn2', title: document.getElementById('button-2').value } }
+        ]
       }
+    };
+  }
+
+  try {
+    // Show loading state
+    sendButton.disabled = true;
+    sendButton.textContent = 'Sending...';
+
+    const res = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    
+    if (result.success) {
+      alert('✅ Message sent!');
+      messageDropdown.classList.add('hidden');
       
-      // Send to your backend endpoint
-      const response = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      // Add to local messages
+      const now = new Date();
+      messages[selectedConversation] = messages[selectedConversation] || [];
+      messages[selectedConversation].push({
+        id: result.messageId || `gen-${Date.now()}`,
+        to: selectedConversation,
+        message: payload,
+        direction: 'outgoing',
+        timestamp: now,
+        status: 'sent'
       });
-      
-      const result = await response.json();
-      if (result.success) {
-        alert('Message sent successfully!');
-        emojiDropdown.classList.remove('active');
-      } else {
-        throw new Error(result.error || 'Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('Error: ' + error.message);
+      renderMessages(selectedConversation);
+    } else {
+      alert('❌ Failed to send: ' + (result.error || 'Unknown error'));
     }
-  });
+  } catch (err) {
+    console.error('Error sending message:', err);
+    alert('❌ Error sending message');
+  } finally {
+    // Reset button state
+    sendButton.disabled = false;
+    sendButton.textContent = 'Send';
+  }
+});
