@@ -484,12 +484,24 @@ emojiIcon.addEventListener('click', (e) => {
   renderFields(typeSelect.value);
 });
 
-// ❌ Hide dropdown when clicking outside
+let hideDropdownTimeout;
+
+// When user clicks *anywhere* on the document
 document.addEventListener('click', (e) => {
-  if (!messageDropdown.contains(e.target) && e.target !== emojiIcon) {
-    messageDropdown.classList.add('hidden');
+  const isInsideDropdown = messageDropdown.contains(e.target);
+  const isEmojiIcon = emojiIcon.contains(e.target);
+
+  // If click is outside both the emoji icon and the dropdown
+  if (!isInsideDropdown && !isEmojiIcon) {
+    hideDropdownTimeout = setTimeout(() => {
+      messageDropdown.classList.add('hidden');
+    }, 2000); // ⏱ Delayed hide
+  } else {
+    clearTimeout(hideDropdownTimeout); // ❌ Cancel hide if clicked inside
+    messageDropdown.classList.remove('hidden'); // ✅ Make sure it's visible
   }
 });
+
 
 // 🧩 Change input fields on type selection
 typeSelect.addEventListener('change', () => {
