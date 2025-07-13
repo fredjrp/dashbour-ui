@@ -9,15 +9,9 @@ const firebaseConfig = {
   measurementId: "G-SL0YLWT2TX"
 };
 
-// WhatsApp Configuration
-const WHATSAPP_PHONE_NUMBER_ID = "734639106388998"; // Replace with your actual ID
-const BACKEND_URL = "https://aisassistantdvdhs.onrender.com"; // Your backend URL
-
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// DOM elements
 const chatsList = document.getElementById('chats-list');
 const chatWindowContents = document.getElementById('chat-window-contents');
 const messageInput = document.getElementById('message-input');
@@ -28,7 +22,6 @@ const connectionStatus = document.getElementById('connection-status');
 const searchInput = document.getElementById('search-input');
 const aiToggle = document.getElementById('ai-toggle-checkbox');
 
-// State
 let selectedConversation = null;
 let conversations = [];
 let messages = {};
@@ -326,7 +319,7 @@ async function sendMessageFromInput() {
     renderMessages(selectedConversation);
     messageInput.value = '';
 
-    const response = await fetch(`${BACKEND_URL}/webhook`, {
+    const response = await fetch('https://aisassistantdvdhs.onrender.com/webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -334,10 +327,9 @@ async function sendMessageFromInput() {
           changes: [{
             value: {
               messages: [{
-                from: WHATSAPP_PHONE_NUMBER_ID,
+                from: PHONE_NUMBER_ID,
                 to: selectedConversation,
-                text: { body: text },
-                type: 'text'
+                text: { body: text }
               }]
             }
           }]
@@ -526,7 +518,7 @@ sendButton.addEventListener('click', async () => {
     });
     renderMessages(selectedConversation);
 
-    const response = await fetch(`${BACKEND_URL}/webhook`, {
+    const response = await fetch('https://aisassistantdvdhs.onrender.com/webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -534,7 +526,7 @@ sendButton.addEventListener('click', async () => {
           changes: [{
             value: {
               messages: [{
-                from: WHATSAPP_PHONE_NUMBER_ID,
+                from: PHONE_NUMBER_ID,
                 to: selectedConversation,
                 ...payload
               }]
