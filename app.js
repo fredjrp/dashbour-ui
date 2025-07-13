@@ -31,68 +31,52 @@ let messages = {};
 let unsubscribeConversations = null;
 let unsubscribeMessages = null;
 
-// Initialize the app
 function initApp() {
   setupRealTimeListeners();
   setupEventListeners();
 }
 
-// Firestore listener for conversations
 function setupRealTimeListeners() {
   unsubscribeConversations = db.collection('users')
     .orderBy('onboarding.lastActive', 'desc')
     .limit(100)
     .onSnapshot(snapshot => {
-      console.log('📡 Firestore connected. Docs:', snapshot.size);
       conversations = [];
-      
       snapshot.forEach(doc => {
         const data = doc.data();
-        const onboarding = data.onboarding || {};
-        
         conversations.push({
           id: doc.id,
           phone: doc.id,
-          name: onboarding.name?.value || 'Unknown',
+          name: data.name || data.onboarding?.name || 'Unknown',
           lastMessage: data.lastMessage || 'No messages yet',
-          lastActive: onboarding.lastActive?.toDate() || new Date(),
+          lastActive: data.onboarding?.lastActive?.toDate() || new Date(),
           status: data.status || 'active',
           aiEnabled: data.aiEnabled !== false,
-          onboardingStage: onboarding.stage || 'none',
-          onboardingCompleted: onboarding.completed || false,
-          businessType: onboarding.businessType?.value || 'Unknown',
+          onboardingStage: data.onboarding?.stage || 'none',
+          onboardingCompleted: data.onboarding?.completed || false,
+          userType: data.userType || data.onboarding?.userType || 'Unknown',
           profilePhoto: data.photoURL || 'https://picsum.photos/id/103/50'
         });
       });
-
       renderConversations();
       updateConnectionStatus(true);
     }, error => {
-      console.error('❌ Firestore listener error:', error);
+      console.error('Firestore listener error:', error);
       updateConnectionStatus(false);
     });
 }
 
-// Event listeners
 function setupEventListeners() {
-  // Conversation selection
   chatsList.addEventListener('click', (e) => {
     const chatItem = e.target.closest('.chat-tile');
-    if (chatItem) {
-      selectConversation(chatItem.dataset.phone);
-    }
+    if (chatItem) selectConversation(chatItem.dataset.phone);
   });
 
-  // Message sending
   document.getElementById('send-button').addEventListener('click', sendMessageFromInput);
   messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      sendMessageFromInput();
-    }
+    if (e.key === 'Enter') sendMessageFromInput();
   });
 
-  // Search functionality
   searchInput.addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase();
     document.querySelectorAll('.chat-tile').forEach(chat => {
@@ -103,16 +87,12 @@ function setupEventListeners() {
   });
 }
 
-// Select conversation and load messages
 async function selectConversation(phoneNumber) {
   selectedConversation = phoneNumber;
-
-  // Update UI for selected conversation
   document.querySelectorAll('.chat-tile').forEach(item => {
     item.classList.toggle('active', item.dataset.phone === phoneNumber);
   });
 
-  // Find conversation data
   const conversation = conversations.find(c => c.id === phoneNumber);
   if (conversation) {
     chatTitle.textContent = conversation.name || maskPhoneNumber(phoneNumber);
@@ -121,106 +101,72 @@ async function selectConversation(phoneNumber) {
     chatWindowFooter.style.display = 'flex';
   }
 
-  // Setup AI toggle
   setupAIToggle(phoneNumber);
-
-  // Load messages
   chatWindowContents.innerHTML = '<div class="loading-state"><p>Loading messages...</p></div>';
   if (unsubscribeMessages) unsubscribeMessages();
   loadMessagesForConversation(phoneNumber);
 }
 
-// Setup AI toggle with Firestore sync
 async function setupAIToggle(phoneNumber) {
   if (!aiToggle) return;
-
   const userRef = db.collection('users').doc(phoneNumber);
   const userDoc = await userRef.get();
-
-  // Initialize if doesn't exist
-  if (!userDoc.exists) {
-    await userRef.set({ 
-      aiEnabled: true,
-      status: 'ai'
-    }, { merge: true });
-  }
-
-  // Set initial toggle state
   const userData = userDoc.data() || {};
+
   aiToggle.checked = userData.aiEnabled !== false;
   updateAIToggleColor(aiToggle.checked);
 
-  // Handle toggle changes
   aiToggle.onchange = async () => {
     const newState = aiToggle.checked;
     updateAIToggleColor(newState);
     await userRef.update({ 
       aiEnabled: newState,
-      status: newState ? 'ai' : 'assigned'
+      requiresAgent: !newState,
+      assignedAgent: !newState ? 'pending' : null
     });
   };
 }
 
 function updateAIToggleColor(enabled) {
   const slider = document.querySelector('.slider');
-  if (slider) {
-    slider.style.backgroundColor = enabled ? '#2ecc71' : '#e74c3c';
-  }
+  if (slider) slider.style.backgroundColor = enabled ? '#2ecc71' : '#e74c3c';
 }
 
-// Load messages for a conversation
 async function loadMessagesForConversation(phoneNumber) {
   try {
-    // Clear existing messages
     messages[phoneNumber] = [];
-
-    // Get incoming messages (from user)
-    const incomingQuery = db.collection('whatsapp_logs')
-      .where('from', '==', phoneNumber)
+    const query = db.collection('whatsapp_logs')
+      .where('userId', '==', phoneNumber)
       .orderBy('timestamp', 'asc');
 
-    const incomingSnapshot = await incomingQuery.get();
-    incomingSnapshot.forEach(doc => {
-      addMessageToState(phoneNumber, doc.data(), 'incoming');
+    const snapshot = await query.get();
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      addMessageToState(phoneNumber, data, data.direction === 'outgoing' ? 'outgoing' : 'incoming');
     });
 
-    // Get outgoing messages (to user)
-    const outgoingQuery = db.collection('whatsapp_logs')
-      .where('to', '==', phoneNumber)
-      .orderBy('timestamp', 'asc');
-
-    const outgoingSnapshot = await outgoingQuery.get();
-    outgoingSnapshot.forEach(doc => {
-      addMessageToState(phoneNumber, doc.data(), 'outgoing');
-    });
-
-    // Sort all messages by timestamp
     messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
     renderMessages(phoneNumber);
 
-    // Setup real-time listener for new messages
     unsubscribeMessages = db.collection('whatsapp_logs')
-      .where('from', '==', phoneNumber)
+      .where('userId', '==', phoneNumber)
       .onSnapshot(snapshot => {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added') {
-            addMessageToState(phoneNumber, change.doc.data(), 'incoming');
+            const data = change.doc.data();
+            addMessageToState(phoneNumber, data, data.direction === 'outgoing' ? 'outgoing' : 'incoming');
             renderMessages(phoneNumber);
           }
         });
       });
-
   } catch (error) {
-    console.error('❌ Error loading messages:', error);
+    console.error('Error loading messages:', error);
     chatWindowContents.innerHTML = '<div class="empty-state"><p>Error loading messages. Please try again.</p></div>';
   }
 }
 
-// Helper to add message to state with proper formatting
 function addMessageToState(phoneNumber, messageData, direction) {
   if (!messages[phoneNumber]) messages[phoneNumber] = [];
-  
-  // Skip if message already exists
   if (messages[phoneNumber].some(msg => msg.id === messageData.messageId)) return;
 
   const timestamp = messageData.timestamp?.toDate 
@@ -235,10 +181,8 @@ function addMessageToState(phoneNumber, messageData, direction) {
   });
 }
 
-// Render conversation list
 function renderConversations() {
   chatsList.innerHTML = conversations.length ? '' : '<div class="empty-state"><p>No conversations found</p></div>';
-
   conversations.forEach(conversation => {
     const chatItem = document.createElement('div');
     chatItem.className = `chat-tile ${selectedConversation === conversation.id ? 'active' : ''}`;
@@ -264,7 +208,6 @@ function renderConversations() {
   });
 }
 
-// Render chat messages
 function renderMessages(phoneNumber) {
   if (!messages[phoneNumber]?.length) {
     chatWindowContents.innerHTML = '<div class="empty-state"><p>No messages in this conversation</p></div>';
@@ -275,7 +218,6 @@ function renderMessages(phoneNumber) {
   let currentDate = null;
 
   messages[phoneNumber].forEach(msg => {
-    // Add date separator if needed
     const messageDate = formatDate(msg.timestamp);
     if (messageDate !== currentDate) {
       currentDate = messageDate;
@@ -287,8 +229,6 @@ function renderMessages(phoneNumber) {
 
     const isOutgoing = msg.direction === 'outgoing';
     const messageTime = formatTime(msg.timestamp);
-    
-    // Format message content based on type
     let messageContent = formatMessageContent(msg);
 
     const messageGroup = document.createElement('div');
@@ -308,12 +248,9 @@ function renderMessages(phoneNumber) {
     `;
     chatWindowContents.appendChild(messageGroup);
   });
-
-  // Scroll to bottom
   chatWindowContents.scrollTop = chatWindowContents.scrollHeight;
 }
 
-// Format different message types
 function formatMessageContent(msg) {
   if (msg.message?.text?.body) {
     return `<div class="wa-text-message">${escapeHTML(msg.message.text.body)}</div>`;
@@ -358,13 +295,11 @@ function formatMessageContent(msg) {
   return `<div class="wa-unknown-message">[${msg.message?.type || 'unknown'} message]</div>`;
 }
 
-// Send message from input
 async function sendMessageFromInput() {
   const text = messageInput.value.trim();
   if (!text || !selectedConversation) return;
 
   try {
-    // Optimistically add to UI
     const tempId = `temp-${Date.now()}`;
     const now = new Date();
     messages[selectedConversation] = messages[selectedConversation] || [];
@@ -379,7 +314,6 @@ async function sendMessageFromInput() {
     renderMessages(selectedConversation);
     messageInput.value = '';
 
-    // Send to backend
     const response = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -392,7 +326,6 @@ async function sendMessageFromInput() {
 
     const result = await response.json();
     
-    // Update status in UI
     if (result.success) {
       const sentMessage = messages[selectedConversation].find(m => m.id === tempId);
       if (sentMessage) {
@@ -404,8 +337,7 @@ async function sendMessageFromInput() {
       throw new Error(result.error || 'Failed to send');
     }
   } catch (error) {
-    console.error('❌ Message send failed:', error);
-    // Update status to failed
+    console.error('Message send failed:', error);
     const failedMessage = messages[selectedConversation].find(m => m.id.startsWith('temp-'));
     if (failedMessage) {
       failedMessage.status = 'failed';
@@ -414,7 +346,6 @@ async function sendMessageFromInput() {
   }
 }
 
-// Utility functions
 function escapeHTML(str) {
   return str?.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") || '';
 }
@@ -462,7 +393,6 @@ function updateConnectionStatus(connected) {
   connectionStatus.style.color = connected ? '#2ecc71' : '#e74c3c';
 }
 
-// Initialize on load
 document.addEventListener('DOMContentLoaded', initApp);
 
 const emojiIcon = document.querySelector('img[src="icons/emoji.svg"]');
@@ -471,44 +401,33 @@ const typeSelect = document.getElementById('message-type');
 const fieldsContainer = document.getElementById('message-fields');
 const sendButton = document.getElementById('send-custom-message');
 
-// 🎯 Toggle dropdown on emoji icon click
 emojiIcon.addEventListener('click', (e) => {
   e.stopPropagation();
   messageDropdown.classList.toggle('hidden');
-
-  // Position near emoji icon
   const rect = emojiIcon.getBoundingClientRect();
   messageDropdown.style.left = `${rect.left}px`;
   messageDropdown.style.bottom = `${window.innerHeight - rect.top + 10}px`;
-
   renderFields(typeSelect.value);
 });
 
 let hideDropdownTimeout;
-
-// When user clicks *anywhere* on the document
 document.addEventListener('click', (e) => {
   const isInsideDropdown = messageDropdown.contains(e.target);
   const isEmojiIcon = emojiIcon.contains(e.target);
-
-  // If click is outside both the emoji icon and the dropdown
   if (!isInsideDropdown && !isEmojiIcon) {
     hideDropdownTimeout = setTimeout(() => {
       messageDropdown.classList.add('hidden');
-    }, 2000); // ⏱ Delayed hide
+    }, 2000);
   } else {
-    clearTimeout(hideDropdownTimeout); // ❌ Cancel hide if clicked inside
-    messageDropdown.classList.remove('hidden'); // ✅ Make sure it's visible
+    clearTimeout(hideDropdownTimeout);
+    messageDropdown.classList.remove('hidden');
   }
 });
 
-
-// 🧩 Change input fields on type selection
 typeSelect.addEventListener('change', () => {
   renderFields(typeSelect.value);
 });
 
-// 🧩 Render message input fields based on type
 function renderFields(type) {
   let html = '';
   if (type === 'text') {
@@ -535,10 +454,9 @@ function renderFields(type) {
   fieldsContainer.innerHTML = html;
 }
 
-// 🟢 Send custom message
 sendButton.addEventListener('click', async () => {
   if (!selectedConversation) {
-    alert('❌ No conversation selected.');
+    alert('No conversation selected.');
     return;
   }
   
@@ -574,7 +492,6 @@ sendButton.addEventListener('click', async () => {
   }
 
   try {
-    // Show loading state
     sendButton.disabled = true;
     sendButton.textContent = 'Sending...';
 
@@ -587,10 +504,8 @@ sendButton.addEventListener('click', async () => {
     const result = await res.json();
     
     if (result.success) {
-      alert('✅ Message sent!');
+      alert('Message sent!');
       messageDropdown.classList.add('hidden');
-      
-      // Add to local messages
       const now = new Date();
       messages[selectedConversation] = messages[selectedConversation] || [];
       messages[selectedConversation].push({
@@ -603,13 +518,12 @@ sendButton.addEventListener('click', async () => {
       });
       renderMessages(selectedConversation);
     } else {
-      alert('❌ Failed to send: ' + (result.error || 'Unknown error'));
+      alert('Failed to send: ' + (result.error || 'Unknown error'));
     }
   } catch (err) {
     console.error('Error sending message:', err);
-    alert('❌ Error sending message');
+    alert('Error sending message');
   } finally {
-    // Reset button state
     sendButton.disabled = false;
     sendButton.textContent = 'Send';
   }
