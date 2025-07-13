@@ -9,11 +9,9 @@ const firebaseConfig = {
   measurementId: "G-SL0YLWT2TX"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// DOM elements
 const chatsList = document.getElementById('chats-list');
 const chatWindowContents = document.getElementById('chat-window-contents');
 const messageInput = document.getElementById('message-input');
@@ -24,7 +22,6 @@ const connectionStatus = document.getElementById('connection-status');
 const searchInput = document.getElementById('search-input');
 const aiToggle = document.getElementById('ai-toggle-checkbox');
 
-// State
 let selectedConversation = null;
 let conversations = [];
 let messages = {};
@@ -136,29 +133,37 @@ async function loadMessagesForConversation(phoneNumber) {
   try {
     messages[phoneNumber] = [];
     const query = db.collection('whatsapp_logs')
-      .where('userId', '==', phoneNumber)
+      .where('from', '==', phoneNumber)
       .orderBy('timestamp', 'asc');
 
-    const snapshot = await query.get();
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      addMessageToState(phoneNumber, data, data.direction === 'outgoing' ? 'outgoing' : 'incoming');
+    const incomingSnapshot = await query.get();
+    incomingSnapshot.forEach(doc => {
+      addMessageToState(phoneNumber, doc.data(), 'incoming');
+    });
+
+    const outgoingQuery = db.collection('whatsapp_logs')
+      .where('to', '==', phoneNumber)
+      .orderBy('timestamp', 'asc');
+
+    const outgoingSnapshot = await outgoingQuery.get();
+    outgoingSnapshot.forEach(doc => {
+      addMessageToState(phoneNumber, doc.data(), 'outgoing');
     });
 
     messages[phoneNumber].sort((a, b) => a.timestamp - b.timestamp);
     renderMessages(phoneNumber);
 
     unsubscribeMessages = db.collection('whatsapp_logs')
-      .where('userId', '==', phoneNumber)
+      .where('from', '==', phoneNumber)
       .onSnapshot(snapshot => {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added') {
-            const data = change.doc.data();
-            addMessageToState(phoneNumber, data, data.direction === 'outgoing' ? 'outgoing' : 'incoming');
+            addMessageToState(phoneNumber, change.doc.data(), 'incoming');
             renderMessages(phoneNumber);
           }
         });
       });
+
   } catch (error) {
     console.error('Error loading messages:', error);
     chatWindowContents.innerHTML = '<div class="empty-state"><p>Error loading messages. Please try again.</p></div>';
@@ -314,27 +319,33 @@ async function sendMessageFromInput() {
     renderMessages(selectedConversation);
     messageInput.value = '';
 
-    const response = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+    const response = await fetch('https://aisassistantdvdhs.onrender.com/webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to: selectedConversation,
-        type: 'text',
-        text: text
+        entry: [{
+          changes: [{
+            value: {
+              messages: [{
+                from: PHONE_NUMBER_ID,
+                to: selectedConversation,
+                text: { body: text }
+              }]
+            }
+          }]
+        }]
       })
     });
 
-    const result = await response.json();
-    
-    if (result.success) {
+    if (response.ok) {
       const sentMessage = messages[selectedConversation].find(m => m.id === tempId);
       if (sentMessage) {
         sentMessage.status = 'sent';
-        sentMessage.id = result.messageId;
+        sentMessage.id = `msg-${Date.now()}`;
         renderMessages(selectedConversation);
       }
     } else {
-      throw new Error(result.error || 'Failed to send');
+      throw new Error('Failed to send');
     }
   } catch (error) {
     console.error('Message send failed:', error);
@@ -495,34 +506,56 @@ sendButton.addEventListener('click', async () => {
     sendButton.disabled = true;
     sendButton.textContent = 'Sending...';
 
-    const res = await fetch('https://aisassistantdvdhs.onrender.com/send-message', {
+    const tempId = `temp-${Date.now()}`;
+    messages[selectedConversation] = messages[selectedConversation] || [];
+    messages[selectedConversation].push({
+      id: tempId,
+      to: selectedConversation,
+      message: payload,
+      direction: 'outgoing',
+      timestamp: new Date(),
+      status: 'sending'
+    });
+    renderMessages(selectedConversation);
+
+    const response = await fetch('https://aisassistantdvdhs.onrender.com/webhook', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        entry: [{
+          changes: [{
+            value: {
+              messages: [{
+                from: PHONE_NUMBER_ID,
+                to: selectedConversation,
+                ...payload
+              }]
+            }
+          }]
+        }]
+      })
     });
 
-    const result = await res.json();
-    
-    if (result.success) {
-      alert('Message sent!');
+    if (response.ok) {
+      const sentMessage = messages[selectedConversation].find(m => m.id === tempId);
+      if (sentMessage) {
+        sentMessage.status = 'sent';
+        sentMessage.id = `msg-${Date.now()}`;
+        renderMessages(selectedConversation);
+      }
       messageDropdown.classList.add('hidden');
-      const now = new Date();
-      messages[selectedConversation] = messages[selectedConversation] || [];
-      messages[selectedConversation].push({
-        id: result.messageId || `gen-${Date.now()}`,
-        to: selectedConversation,
-        message: payload,
-        direction: 'outgoing',
-        timestamp: now,
-        status: 'sent'
-      });
-      renderMessages(selectedConversation);
     } else {
-      alert('Failed to send: ' + (result.error || 'Unknown error'));
+      throw new Error('Failed to send');
     }
   } catch (err) {
     console.error('Error sending message:', err);
-    alert('Error sending message');
+    alert('Failed to send: ' + (err.message || 'Unknown error'));
+    
+    const failedMessage = messages[selectedConversation].find(m => m.id.startsWith('temp-'));
+    if (failedMessage) {
+      failedMessage.status = 'failed';
+      renderMessages(selectedConversation);
+    }
   } finally {
     sendButton.disabled = false;
     sendButton.textContent = 'Send';
